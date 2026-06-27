@@ -25,7 +25,9 @@ subprojects {
     }
 
     dependencies {
-        "testImplementation"("org.springframework.boot:spring-boot-starter-test")
+        // Force Gradle to use the BOM-managed junit-platform-launcher (6.x) instead of
+        // its own bundled 1.8.2, which is incompatible with junit-platform-engine 6.x.
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
 
     tasks.withType<Test> {

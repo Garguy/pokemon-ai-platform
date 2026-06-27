@@ -4,6 +4,8 @@ springAi = "2.0.0"
 jjwt = "0.12.6"
 testcontainers = "2.0.5"
 postgres = "42.7.7"
+caffeine = "3.2.0"
+springRetry = "2.0.13"
 
 [libraries]
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
@@ -11,12 +13,16 @@ spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-
 spring-boot-starter-graphql = { module = "org.springframework.boot:spring-boot-starter-graphql" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-cache = { module = "org.springframework.boot:spring-boot-starter-cache" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 spring-graphql-test = { module = "org.springframework.graphql:spring-graphql-test" }
 flyway-starter = { module = "org.springframework.boot:spring-boot-starter-flyway" }
 flyway-postgres = { module = "org.flywaydb:flyway-database-postgresql" }
 postgres-driver = { module = "org.postgresql:postgresql", version.ref = "postgres" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+spring-retry = { module = "org.springframework.retry:spring-retry", version.ref = "springRetry" }
+spring-aspects = { module = "org.springframework:spring-aspects" }
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }

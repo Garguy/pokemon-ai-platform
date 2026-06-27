@@ -15,6 +15,8 @@ dependencies {
     implementation(libs.spring.boot.starter.graphql)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.cache)
+    implementation(libs.caffeine)
     implementation(libs.flyway.starter)
     implementation(libs.flyway.postgres)
     runtimeOnly(libs.postgres.driver)
