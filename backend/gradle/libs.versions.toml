@@ -1,0 +1,29 @@
+[versions]
+springBoot = "4.1.0"
+springAi = "2.0.0"
+jjwt = "0.12.6"
+testcontainers = "2.0.5"
+postgres = "42.7.7"
+
+[libraries]
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-graphql = { module = "org.springframework.boot:spring-boot-starter-graphql" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+spring-graphql-test = { module = "org.springframework.graphql:spring-graphql-test" }
+flyway-starter = { module = "org.springframework.boot:spring-boot-starter-flyway" }
+flyway-postgres = { module = "org.flywaydb:flyway-database-postgresql" }
+postgres-driver = { module = "org.postgresql:postgresql", version.ref = "postgres" }
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+spring-ai-vertex-ai-gemini-spring-boot-starter = { module = "org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter", version.ref = "springAi" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version = "1.1.7" }

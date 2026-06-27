@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+out/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+*.env.local
+application-local.yml
+application-local.properties
+
+# Logs
+*.log
+logs/

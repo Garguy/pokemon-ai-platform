@@ -1,0 +1,26 @@
+package com.pokemonai.app;
+
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+
+public abstract class PostgresContainerBase {
+
+    // Shared across all test classes — started once, stopped when JVM exits
+    static final PostgreSQLContainer<?> POSTGRES;
+
+    static {
+        POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16")
+                .withDatabaseName("pokemonai_test")
+                .withUsername("pokemonai")
+                .withPassword("pokemonai");
+        POSTGRES.start();
+    }
+
+    @DynamicPropertySource
+    static void configureDataSource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+}
