@@ -1,0 +1,8 @@
+query GetQuestions {
+    questions {
+        id
+        text
+        traitCategory
+        displayOrder
+    }
+}

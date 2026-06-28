@@ -1,0 +1,15 @@
+mutation GenerateRecommendations {
+    generateRecommendations {
+        id
+        pokemon {
+            id
+            name
+            description
+            imageUrl
+        }
+        matchScore
+        rank
+        explanation
+        generatedAt
+    }
+}

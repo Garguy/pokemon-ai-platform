@@ -1,0 +1,12 @@
+mutation SubmitAnswers($answers: [AnswerInput!]!) {
+    submitAnswers(answers: $answers) {
+        id
+        energy
+        curiosity
+        leadership
+        loyalty
+        risk
+        creativity
+        calculatedAt
+    }
+}

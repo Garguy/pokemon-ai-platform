@@ -1,0 +1,86 @@
+type Query {
+    ping: String!
+    me: User
+    pokemon(id: ID!): Pokemon
+    pokemons(page: Int = 0, size: Int = 20): PokemonPage!
+    questions: [Question!]!
+    myProfile: PersonalityProfile
+    myRecommendations: [Recommendation!]!
+}
+
+type Mutation {
+    register(input: RegisterInput!): AuthPayload!
+    login(input: LoginInput!): AuthPayload!
+    submitAnswers(answers: [AnswerInput!]!): PersonalityProfile!
+    generateRecommendations: [Recommendation!]!
+}
+
+type User {
+    id: ID!
+    email: String!
+    createdAt: String!
+}
+
+type AuthPayload {
+    token: String!
+    user: User!
+}
+
+type Pokemon {
+    id: ID!
+    externalId: Int!
+    name: String!
+    description: String
+    imageUrl: String
+    syncedAt: String!
+}
+
+type PokemonPage {
+    content: [Pokemon!]!
+    totalElements: Int!
+    totalPages: Int!
+    page: Int!
+    size: Int!
+}
+
+input RegisterInput {
+    email: String!
+    password: String!
+}
+
+input LoginInput {
+    email: String!
+    password: String!
+}
+
+input AnswerInput {
+    questionId: ID!
+    answerValue: Int!
+}
+
+type Question {
+    id: ID!
+    text: String!
+    traitCategory: String!
+    displayOrder: Int!
+}
+
+type PersonalityProfile {
+    id: ID!
+    energy: Float!
+    curiosity: Float!
+    leadership: Float!
+    loyalty: Float!
+    risk: Float!
+    creativity: Float!
+    calculatedAt: String!
+}
+
+type Recommendation {
+    id: ID!
+    pokemon: Pokemon!
+    matchScore: Float!
+    rank: Int!
+    explanation: String
+    generatedAt: String!
+}

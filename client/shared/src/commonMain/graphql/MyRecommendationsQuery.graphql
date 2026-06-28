@@ -1,0 +1,15 @@
+query MyRecommendations {
+    myRecommendations {
+        id
+        pokemon {
+            id
+            name
+            description
+            imageUrl
+        }
+        matchScore
+        rank
+        explanation
+        generatedAt
+    }
+}
