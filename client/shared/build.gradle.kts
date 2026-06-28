@@ -11,7 +11,6 @@ kotlin {
     androidTarget {
         compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
     }
-    iosX64()
     iosArm64()
     iosSimulatorArm64()
     jvm("desktop")
@@ -30,6 +29,7 @@ kotlin {
             implementation(libs.compose.navigation)
             implementation(libs.coil.compose)
             implementation(libs.coil.network)
+            implementation(libs.composables.ui)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -58,6 +58,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+configurations.all {
+    resolutionStrategy.force("org.jetbrains.skiko:skiko:0.144.6")
 }
 
 apollo {

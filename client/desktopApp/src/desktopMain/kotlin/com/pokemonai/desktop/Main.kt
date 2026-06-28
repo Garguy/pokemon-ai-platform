@@ -26,7 +26,9 @@ fun main() {
             title = "Pokémon AI",
             state = windowState,
         ) {
-            PokemonAiNavHost()
+            com.pokemonai.client.ui.PokemonTheme {
+                PokemonAiNavHost()
+            }
         }
     }
 }

@@ -8,6 +8,10 @@ import com.pokemonai.client.ui.PokemonAiNavHost
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { PokemonAiNavHost() }
+        setContent {
+            com.pokemonai.client.ui.PokemonTheme {
+                PokemonAiNavHost()
+            }
+        }
     }
 }

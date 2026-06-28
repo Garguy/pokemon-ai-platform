@@ -1,7 +1,7 @@
 [versions]
-kotlin = "2.1.21"
-kmp-compose = "1.8.2"
-apollo = "4.1.1"
+kotlin = "2.4.0"
+kmp-compose = "1.11.1"
+apollo = "5.0.1"
 koin = "4.1.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.8.1"
@@ -46,7 +46,10 @@ androidx-security-crypto = { module = "androidx.security:security-crypto", versi
 
 # Coil image loading
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
-coil-network = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+coil-network = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+
+# Composables UI (headless KMP component library)
+composables-ui = { module = "com.composables:ui", version = "0.1.0" }
 
 # Test
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
