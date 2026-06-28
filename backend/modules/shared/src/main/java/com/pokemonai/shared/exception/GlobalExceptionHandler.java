@@ -24,12 +24,6 @@ public class GlobalExceptionHandler extends DataFetcherExceptionResolverAdapter 
                     .message(ex.getMessage())
                     .build();
         }
-        if (ex instanceof IllegalArgumentException) {
-            return GraphqlErrorBuilder.newError(env)
-                    .errorType(ErrorType.BAD_REQUEST)
-                    .message(ex.getMessage())
-                    .build();
-        }
         return null;
     }
 }

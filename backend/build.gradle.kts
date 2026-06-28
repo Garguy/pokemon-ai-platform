@@ -31,6 +31,10 @@ subprojects {
     }
 
     tasks.withType<Test> {
-        useJUnitPlatform()
+        useJUnitPlatform {
+            if (name != "testAiIntegration") {
+                excludeTags("integration-ai")
+            }
+        }
     }
 }

@@ -1,9 +1,13 @@
 package com.pokemonai.app;
 
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+@ActiveProfiles("test")
+@Import(TestAiConfig.class)
 public abstract class PostgresContainerBase {
 
     // Shared across all test classes — started once, stopped when JVM exits

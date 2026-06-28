@@ -5,12 +5,14 @@ type Query {
     pokemons(page: Int = 0, size: Int = 20): PokemonPage!
     questions: [Question!]!
     myProfile: PersonalityProfile
+    myRecommendations: [Recommendation!]!
 }
 
 type Mutation {
     register(input: RegisterInput!): AuthPayload!
     login(input: LoginInput!): AuthPayload!
     submitAnswers(answers: [AnswerInput!]!): PersonalityProfile!
+    generateRecommendations: [Recommendation!]!
 }
 
 type User {
@@ -72,4 +74,13 @@ type PersonalityProfile {
     risk: Float!
     creativity: Float!
     calculatedAt: String!
+}
+
+type Recommendation {
+    id: ID!
+    pokemon: Pokemon!
+    matchScore: Float!
+    rank: Int!
+    explanation: String
+    generatedAt: String!
 }

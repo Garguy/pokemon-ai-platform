@@ -8,6 +8,7 @@ import com.pokemonai.shared.exception.PokemonAiException;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
@@ -35,7 +36,7 @@ public class QuestionnaireController {
 
     @QueryMapping
     public Map<String, Object> myProfile(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
             return null;
         }
         UUID userId = resolveUserId(authentication);
@@ -49,7 +50,7 @@ public class QuestionnaireController {
             @Argument List<Map<String, Object>> answers,
             Authentication authentication) {
 
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
             throw new PokemonAiException("Authentication required");
         }
         UUID userId = resolveUserId(authentication);
@@ -61,9 +62,13 @@ public class QuestionnaireController {
                     if (rawId == null || rawValue == null) {
                         throw new PokemonAiException("questionId and answerValue are required");
                     }
-                    return new QuestionnaireService.AnswerInput(
-                            UUID.fromString(rawId),
-                            rawValue.intValue());
+                    try {
+                        return new QuestionnaireService.AnswerInput(
+                                UUID.fromString(rawId),
+                                rawValue.intValue());
+                    } catch (IllegalArgumentException e) {
+                        throw new PokemonAiException("Invalid question ID format: " + rawId);
+                    }
                 })
                 .toList();
 
@@ -72,6 +77,9 @@ public class QuestionnaireController {
     }
 
     private UUID resolveUserId(Authentication authentication) {
+        if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
+            throw new PokemonAiException("Authentication required");
+        }
         String email = (String) authentication.getPrincipal();
         return userService.findByEmail(email).getId();
     }

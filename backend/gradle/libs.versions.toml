@@ -28,7 +28,7 @@ jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
-spring-ai-vertex-ai-gemini-spring-boot-starter = { module = "org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter", version.ref = "springAi" }
+spring-ai-google-genai-starter = { module = "org.springframework.ai:spring-ai-starter-model-google-genai", version.ref = "springAi" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
