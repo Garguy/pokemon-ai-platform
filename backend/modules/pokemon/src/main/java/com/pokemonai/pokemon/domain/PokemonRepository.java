@@ -11,5 +11,7 @@ public interface PokemonRepository extends JpaRepository<Pokemon, UUID> {
 
     Optional<Pokemon> findByExternalId(int externalId);
 
+    Optional<Pokemon> findByNameIgnoreCase(String name);
+
     Page<Pokemon> findAllByOrderByExternalIdAsc(Pageable pageable);
 }

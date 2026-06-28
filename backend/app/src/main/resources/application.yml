@@ -21,9 +21,9 @@ spring:
       genai:
         api-key: ${GEMINI_API_KEY:}
         chat:
-          model: gemini-2.5-flash
+          model: gemini-2.0-flash
           temperature: 0.2
-          max-output-tokens: 512
+          max-output-tokens: 256
 
 pokeapi:
   base-url: https://pokeapi.co

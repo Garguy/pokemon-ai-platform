@@ -12,9 +12,6 @@ kotlin {
                 implementation(project(":shared"))
                 implementation(compose.desktop.currentOs)
                 implementation(libs.koin.core)
-                implementation(libs.koin.compose)
-                implementation(libs.compose.material3)
-                implementation(libs.compose.navigation)
             }
         }
     }

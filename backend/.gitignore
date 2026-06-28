@@ -3,3 +3,5 @@ build/
 *.class
 application-local.yml
 *.key
+.env
+*.env.local

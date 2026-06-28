@@ -1,4 +1,4 @@
-package com.pokemonai.android.ui
+package com.pokemonai.client.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -99,17 +99,26 @@ fun ProcessingScreen(onGenerated: () -> Unit) {
     LaunchedEffect(Unit) { vm.generate() }
     LaunchedEffect(state) { if (state is UiState.Success) onGenerated() }
 
-    Box(Modifier.fillMaxSize(), Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Spacer(Modifier.height(16.dp))
-            Text("Finding your Pokémon…")
+    Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) {
+        when (state) {
+            is UiState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Something went wrong", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Text((state as UiState.Error).message, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { vm.generate() }) { Text("Retry") }
+            }
+            else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(16.dp))
+                Text("Finding your Pokémon…")
+            }
         }
     }
 }
 
 @Composable
-fun ResultScreen(onViewHistory: () -> Unit) {
+fun ResultScreen(onViewHistory: () -> Unit, onSignOut: () -> Unit) {
     val vm = koinInject<RecommendationViewModel>()
     val state by vm.state.collectAsState()
 
@@ -117,11 +126,20 @@ fun ResultScreen(onViewHistory: () -> Unit) {
 
     when (state) {
         is UiState.Loading, UiState.Idle -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-        is UiState.Error -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text((state as UiState.Error).message) }
+        is UiState.Error -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text((state as UiState.Error).message, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onSignOut) { Text("Sign out") }
+            }
+        }
         is UiState.Success -> {
             val recs = (state as UiState.Success).data
             Column(Modifier.fillMaxSize().padding(16.dp)) {
-                Text("Your Pokémon", style = MaterialTheme.typography.headlineMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Your Pokémon", style = MaterialTheme.typography.headlineMedium)
+                    TextButton(onClick = onSignOut) { Text("Sign out") }
+                }
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(recs) { rec ->
@@ -141,7 +159,7 @@ fun ResultScreen(onViewHistory: () -> Unit) {
 }
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(onSignOut: () -> Unit) {
     val vm = koinInject<RecommendationViewModel>()
     val state by vm.state.collectAsState()
 
@@ -149,11 +167,23 @@ fun HistoryScreen() {
 
     when (state) {
         is UiState.Loading, UiState.Idle -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-        is UiState.Error -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text((state as UiState.Error).message) }
+        is UiState.Error -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text((state as UiState.Error).message, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onSignOut) { Text("Sign out") }
+            }
+        }
         is UiState.Success -> {
             val recs = (state as UiState.Success).data
             LazyColumn(Modifier.fillMaxSize().padding(16.dp)) {
-                item { Text("History", style = MaterialTheme.typography.headlineMedium); Spacer(Modifier.height(8.dp)) }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("History", style = MaterialTheme.typography.headlineMedium)
+                        TextButton(onClick = onSignOut) { Text("Sign out") }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 items(recs) { rec ->
                     ListItem(
                         headlineContent = { Text(rec.pokemon.name) },
