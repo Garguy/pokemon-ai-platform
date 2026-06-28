@@ -27,8 +27,7 @@ public class RecommendationEngine {
         List<Recommendation> results = new ArrayList<>();
         for (int i = 0; i < ranked.size(); i++) {
             RankedPokemon rp = ranked.get(i);
-            Recommendation rec = new Recommendation(userId, rp.pokemonId(),
-                    BigDecimal.valueOf(1.0 - (i * 0.05)), (short) (i + 1));
+            Recommendation rec = new Recommendation(userId, rp.pokemonId(), rp.score(), (short) (i + 1));
             rec.setExplanation(rp.explanation());
             results.add(recommendationRepository.save(rec));
         }
@@ -39,5 +38,5 @@ public class RecommendationEngine {
         return recommendationRepository.findByUserIdOrderByRankAsc(userId);
     }
 
-    public record RankedPokemon(UUID pokemonId, String explanation) {}
+    public record RankedPokemon(UUID pokemonId, BigDecimal score, String explanation) {}
 }

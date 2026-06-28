@@ -5,7 +5,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.pokemonai.client.core.SelectedRecommendationHolder
 import com.pokemonai.client.core.TokenStorage
+import com.pokemonai.client.questionnaire.QuestionnaireRepository
 import org.koin.compose.koinInject
 
 object Route {
@@ -14,6 +16,7 @@ object Route {
     const val QUESTIONNAIRE = "questionnaire"
     const val PROCESSING = "processing"
     const val RESULT = "result"
+    const val DETAIL = "detail"
     const val HISTORY = "history"
 }
 
@@ -21,6 +24,8 @@ object Route {
 fun PokemonAiNavHost() {
     val navController = rememberNavController()
     val tokenStorage = koinInject<TokenStorage>()
+    val selectionHolder = koinInject<SelectedRecommendationHolder>()
+    val questionnaireRepo = koinInject<QuestionnaireRepository>()
 
     NavHost(navController = navController, startDestination = Route.SPLASH) {
         composable(Route.SPLASH) {
@@ -52,6 +57,11 @@ fun PokemonAiNavHost() {
         }
         composable(Route.RESULT) {
             ResultScreen(
+                onSelectRecommendation = { rec ->
+                    selectionHolder.selected = rec
+                    navController.navigate(Route.DETAIL)
+                },
+                onTakeQuiz = { navController.navigate(Route.QUESTIONNAIRE) },
                 onViewHistory = { navController.navigate(Route.HISTORY) },
                 onSignOut = {
                     tokenStorage.clear()
@@ -61,8 +71,25 @@ fun PokemonAiNavHost() {
                 },
             )
         }
+        composable(Route.DETAIL) {
+            // Load profile lazily into holder when entering detail
+            LaunchedEffect(Unit) {
+                if (selectionHolder.profile == null) {
+                    selectionHolder.profile = try { questionnaireRepo.getProfile() } catch (_: Exception) { null }
+                }
+            }
+            val rec = selectionHolder.selected
+            if (rec != null) {
+                PokemonDetailScreen(
+                    recommendation = rec,
+                    profile = selectionHolder.profile,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
         composable(Route.HISTORY) {
             HistoryScreen(
+                onBack = { navController.popBackStack() },
                 onSignOut = {
                     tokenStorage.clear()
                     navController.navigate(Route.LOGIN) {

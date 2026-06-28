@@ -1,0 +1,10 @@
+query MyProfile {
+    myProfile {
+        energy
+        curiosity
+        leadership
+        loyalty
+        risk
+        creativity
+    }
+}

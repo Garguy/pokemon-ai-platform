@@ -1,5 +1,10 @@
 package com.pokemonai.client.core
 
+class SelectedRecommendationHolder {
+    var selected: Recommendation? = null
+    var profile: PersonalityProfile? = null
+}
+
 data class AuthUser(val id: String, val email: String)
 
 data class Question(
@@ -25,4 +30,13 @@ data class Recommendation(
     val rank: Int,
     val explanation: String?,
     val generatedAt: String,
+)
+
+data class PersonalityProfile(
+    val energy: Double,
+    val curiosity: Double,
+    val leadership: Double,
+    val loyalty: Double,
+    val risk: Double,
+    val creativity: Double,
 )

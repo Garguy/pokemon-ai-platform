@@ -24,6 +24,9 @@ fun sharedModule(serverUrl: String): Module = module {
 
     single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
 
+    // Holds the currently-selected recommendation for the detail screen
+    single { SelectedRecommendationHolder() }
+
     factory { LoginViewModel(get(), get()) }
     factory { QuestionnaireViewModel(get(), get()) }
     factory { RecommendationViewModel(get(), get()) }

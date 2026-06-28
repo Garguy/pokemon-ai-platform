@@ -1,6 +1,7 @@
 package com.pokemonai.ai.service;
 
 import tools.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -16,13 +17,34 @@ public class AiRecommendationService {
 
     private static final String SYSTEM_PROMPT = """
             You are a Pokémon personality matchmaker. Given a user's personality scores,
-            return the 5 Gen 1 Pokémon (from the original 151) that best match their personality.
-            Return ONLY a valid JSON array of exactly 5 lowercase Pokémon names in ranked order.
-            Example: ["pikachu","eevee","snorlax","gengar","mewtwo"]
-            Do not include any explanation, markdown, or extra text — only the JSON array.
+            identify the single best-matching Gen 1 Pokémon (from the original 151) and
+            4 others that partially fit.
+
+            Rules:
+            - The #1 match should be a near-perfect fit — score it 0.95–1.0.
+            - Matches #2–5 should genuinely be lesser fits — score them 0.60–0.85,
+              spread out. Do NOT give everyone 1.0 or similar scores.
+            - Choose Pokémon whose actual personality, lore, and behaviour match
+              the user's scores. Be specific and avoid generic choices.
+            - The explanation for #1 should be 2–3 sentences, personal and specific,
+              referencing the user's strongest traits by name.
+            - Explanations for #2–5 should be 1 sentence each.
+            - Plain text only — no markdown, no asterisks, no bullet points.
+
+            Return ONLY a valid JSON array of exactly 5 objects in ranked order.
+            Example format (use real content, not these placeholders):
+            [
+              {"name": "charizard", "score": 0.97, "explanation": "Your high energy and leadership make you a natural Charizard — always pushing forward and inspiring others."},
+              {"name": "arcanine", "score": 0.78, "explanation": "Your loyalty runs deep, just like Arcanine's devotion to its trainer."}
+            ]
+            No markdown fences, no extra text — only the JSON array.
             """;
 
-    private static final List<String> FALLBACK = List.of("pikachu", "eevee", "snorlax", "gengar", "mewtwo");
+    public record RankedMatch(
+        @JsonProperty("name") String name,
+        @JsonProperty("score") double score,
+        @JsonProperty("explanation") String explanation
+    ) {}
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
@@ -32,8 +54,8 @@ public class AiRecommendationService {
         this.objectMapper = objectMapper;
     }
 
-    public List<String> rankPokemon(double energy, double curiosity, double leadership,
-                                    double loyalty, double risk, double creativity) {
+    public List<RankedMatch> rankPokemon(double energy, double curiosity, double leadership,
+                                         double loyalty, double risk, double creativity) {
         String userMessage = """
                 User personality scores (0.0–1.0):
                   Energy: %.2f
@@ -42,7 +64,7 @@ public class AiRecommendationService {
                   Loyalty: %.2f
                   Risk-taking: %.2f
                   Creativity: %.2f
-                Which 5 Gen 1 Pokémon best match this personality? Return only the JSON array.
+                Which 5 Gen 1 Pokémon best match this personality? Return the JSON array only.
                 """.formatted(energy, curiosity, leadership, loyalty, risk, creativity);
 
         String raw;
@@ -53,22 +75,30 @@ public class AiRecommendationService {
                     .call()
                     .content();
         } catch (Exception e) {
-            log.error("Gemini recommendation call failed: {}", e.getMessage());
-            return FALLBACK;
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            if (msg.contains("429") || msg.contains("quota") || msg.toLowerCase().contains("rate")) {
+                throw new IllegalStateException("AI rate limit hit — please try again in a moment", e);
+            }
+            throw new IllegalStateException("AI service error: " + msg, e);
         }
 
         return parse(raw);
     }
 
-    List<String> parse(String raw) {
+    List<RankedMatch> parse(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalStateException("Empty response from Gemini");
+        }
         String json = raw.replaceAll("(?s)```(?:json)?\\s*", "").trim();
         try {
-            List<String> names = objectMapper.readValue(json, new TypeReference<>() {});
-            if (names == null || names.isEmpty()) return FALLBACK;
-            return names.stream().map(String::toLowerCase).limit(5).toList();
+            List<RankedMatch> matches = objectMapper.readValue(json, new TypeReference<>() {});
+            if (matches == null || matches.isEmpty()) {
+                throw new IllegalStateException("Gemini returned an empty list");
+            }
+            return matches.stream().limit(5).toList();
         } catch (Exception e) {
-            log.error("Failed to parse Gemini recommendation response: '{}' — using fallback", raw);
-            return FALLBACK;
+            log.error("Failed to parse Gemini response: '{}'", raw);
+            throw new IllegalStateException("Could not parse Pokémon recommendations from AI response", e);
         }
     }
 }

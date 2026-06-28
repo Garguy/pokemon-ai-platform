@@ -24,6 +24,12 @@ public class GlobalExceptionHandler extends DataFetcherExceptionResolverAdapter 
                     .message(ex.getMessage())
                     .build();
         }
+        if (ex instanceof IllegalStateException) {
+            return GraphqlErrorBuilder.newError(env)
+                    .errorType(ErrorType.INTERNAL_ERROR)
+                    .message(ex.getMessage())
+                    .build();
+        }
         return null;
     }
 }
