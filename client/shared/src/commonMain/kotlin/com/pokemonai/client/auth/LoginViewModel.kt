@@ -19,8 +19,8 @@ class LoginViewModel(
         scope.launch {
             _state.value = try {
                 UiState.Success(authRepository.login(email, password))
-            } catch (e: Exception) {
-                UiState.Error(e.message ?: "Login failed")
+            } catch (e: Throwable) {
+                UiState.Error(e.message ?: e::class.simpleName ?: "Login failed")
             }
         }
     }
@@ -30,8 +30,8 @@ class LoginViewModel(
         scope.launch {
             _state.value = try {
                 UiState.Success(authRepository.register(email, password))
-            } catch (e: Exception) {
-                UiState.Error(e.message ?: "Registration failed")
+            } catch (e: Throwable) {
+                UiState.Error(e.message ?: e::class.simpleName ?: "Registration failed")
             }
         }
     }

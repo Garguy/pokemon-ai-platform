@@ -21,6 +21,17 @@ data class PokemonSummary(
     val name: String,
     val description: String?,
     val imageUrl: String?,
+    val externalId: Int? = null,
+    val types: List<String> = emptyList(),
+    val height: Int? = null,
+    val weight: Int? = null,
+    val category: String? = null,
+    val hp: Int? = null,
+    val attack: Int? = null,
+    val defense: Int? = null,
+    val specialAttack: Int? = null,
+    val specialDefense: Int? = null,
+    val speed: Int? = null,
 )
 
 data class Recommendation(

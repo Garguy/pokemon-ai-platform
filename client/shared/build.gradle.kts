@@ -11,8 +11,12 @@ kotlin {
     androidTarget {
         compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
     }
-    iosArm64()
-    iosSimulatorArm64()
+    iosArm64 {
+        binaries.framework { baseName = "shared"; isStatic = true }
+    }
+    iosSimulatorArm64 {
+        binaries.framework { baseName = "shared"; isStatic = true }
+    }
     jvm("desktop")
 
     sourceSets {
@@ -26,6 +30,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            implementation(compose.components.resources)
             implementation(libs.compose.navigation)
             implementation(libs.coil.compose)
             implementation(libs.coil.network)
@@ -41,7 +46,19 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.androidx.security.crypto)
+            // OkHttp engine needed by Apollo and Coil on Android
+            implementation(libs.okhttp)
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.coil.network.okhttp)
         }
+        val iosMain by creating {
+            dependsOn(commonMain.get())
+            dependencies {
+                implementation(libs.ktor.client.darwin)
+            }
+        }
+        val iosArm64Main by getting { dependsOn(iosMain) }
+        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
         val desktopMain by getting {
             dependencies {
                 // java.util.prefs available on JVM — no extra dep needed
@@ -52,7 +69,7 @@ kotlin {
 
 android {
     namespace = "com.pokemonai.client.shared"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig { minSdk = 26 }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -60,8 +77,9 @@ android {
     }
 }
 
-configurations.all {
-    resolutionStrategy.force("org.jetbrains.skiko:skiko:0.144.6")
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "com.pokemonai.client.shared.resources"
 }
 
 apollo {

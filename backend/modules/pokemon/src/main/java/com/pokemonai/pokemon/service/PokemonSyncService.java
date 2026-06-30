@@ -10,8 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-
 @Service
 public class PokemonSyncService {
 
@@ -55,11 +53,22 @@ public class PokemonSyncService {
         String description = species.englishFlavorText();
         String imageUrl = detail.bestImageUrl();
 
-        Optional<Pokemon> existing = pokemonRepository.findByExternalId(externalId);
-        if (existing.isPresent()) {
-            existing.get().update(detail.name(), description, imageUrl);
-        } else {
-            pokemonRepository.save(new Pokemon(externalId, detail.name(), description, imageUrl));
-        }
+        Pokemon pokemon = pokemonRepository.findByExternalId(externalId)
+                .orElseGet(() -> new Pokemon(externalId, detail.name(), description, imageUrl));
+        pokemon.update(detail.name(), description, imageUrl);
+        pokemon.applyDetails(
+                detail.typeNames(),
+                detail.height(),
+                detail.weight(),
+                species.englishGenus(),
+                detail.baseStat("hp"),
+                detail.baseStat("attack"),
+                detail.baseStat("defense"),
+                detail.baseStat("special-attack"),
+                detail.baseStat("special-defense"),
+                detail.baseStat("speed"));
+        // Explicit save: syncAll() calls this method internally, so the @Transactional
+        // proxy is bypassed (self-invocation) and dirty updates would otherwise not flush.
+        pokemonRepository.save(pokemon);
     }
 }

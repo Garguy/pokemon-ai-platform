@@ -21,9 +21,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.PI
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -38,6 +43,14 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Size
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -46,7 +59,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import coil3.compose.AsyncImage
+import org.jetbrains.compose.resources.painterResource
+import com.pokemonai.client.shared.resources.Res
+import com.pokemonai.client.shared.resources.pokeball_open
 import com.composables.ui.components.Button
 import com.composables.ui.components.ButtonSize
 import com.composables.ui.components.ButtonStyle
@@ -72,6 +91,40 @@ private val BodyStyle    = TextStyle(fontWeight = FontWeight.Normal, fontSize = 
 private val LabelStyle   = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, color = PokeColors.Muted)
 private val CapStyle     = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 1.4.sp, color = PokeColors.MutedLight)
 private val MonoStyle    = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = PokeColors.Ink)
+
+// ── Primary button (composables Button uses black by default) ─────────────────
+
+@Composable
+private fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val bg = if (!enabled) PokeColors.PokeRed.copy(alpha = 0.4f)
+             else if (pressed) PokeColors.PokeRedDark
+             else PokeColors.PokeRed
+    Box(
+        modifier
+            .height(52.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bg)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Text(
+            text,
+            style = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = PokeColors.White)
+        )
+    }
+}
 
 // ── Pokémon type lookup (Gen 1) ───────────────────────────────────────────────
 
@@ -323,7 +376,7 @@ private fun LeafEffect(t: Float) {
             leaves.forEach { (phase, angleDeg) ->
                 val p = (progress + phase) % 1f
                 val radius = size.minDimension * 0.42f * p
-                val angle = Math.toRadians((angleDeg + p * 120).toDouble())
+                val angle = (angleDeg + p * 120).toDouble() * (PI / 180.0)
                 val x = cx + radius * cos(angle).toFloat()
                 val y = cy + radius * sin(angle).toFloat()
                 val alpha = if (p < 0.2f) p / 0.2f else if (p > 0.8f) (1f - p) / 0.2f else 1f
@@ -370,7 +423,7 @@ private fun GhostMistEffect(t: Float) {
         Modifier.fillMaxSize().drawBehind {
             val cx = size.width / 2f; val cy = size.height / 2f
             // Slow pulsing dark mist circles at corners
-            val alpha = (sin(mist * Math.PI * 2).toFloat() * 0.5f + 0.5f) * 0.2f
+            val alpha = (sin(mist * PI * 2).toFloat() * 0.5f + 0.5f) * 0.2f
             drawCircle(PokeColors.GhostIndigo.copy(alpha = alpha + 0.05f), radius = size.minDimension * 0.48f, center = Offset(cx, cy))
             drawCircle(PokeColors.GhostIndigo.copy(alpha = alpha * 0.6f), radius = size.minDimension * 0.3f, center = Offset(cx * 0.5f, cy * 0.7f))
             drawCircle(PokeColors.GhostIndigo.copy(alpha = alpha * 0.5f), radius = size.minDimension * 0.25f, center = Offset(cx * 1.5f, cy * 1.2f))
@@ -397,8 +450,15 @@ private fun PulseGlowEffect(color: Color, t: Float) {
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
 @Composable
-private fun PokeScreen(content: @Composable BoxScope.() -> Unit) {
-    Box(Modifier.fillMaxSize().background(PokeColors.Cream), content = content)
+private fun PokeScreen(applyInsets: Boolean = true, content: @Composable BoxScope.() -> Unit) {
+    Box(Modifier.fillMaxSize().background(PokeColors.Cream)) {
+        val inner = if (applyInsets) {
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)
+        } else {
+            Modifier.fillMaxSize()
+        }
+        Box(inner, content = content)
+    }
 }
 
 @Composable
@@ -520,15 +580,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             InlineError((state as? UiState.Error)?.message ?: "")
                         }
                         Spacer(Modifier.height(2.dp))
-                        Button(
+                        PrimaryButton(
+                            text = if (loading) "Signing in…" else "Sign in",
                             onClick = { vm.login(emailState.text.toString(), passwordState.text.toString()) },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !loading && emailState.text.isNotBlank() && passwordState.text.isNotBlank(),
-                            style = ButtonStyle.Primary,
-                            buttonSize = ButtonSize.Large,
-                        ) {
-                            androidx.compose.material3.Text(if (loading) "Signing in…" else "Sign in")
-                        }
+                        )
                         Button(
                             onClick = { vm.register(emailState.text.toString(), passwordState.text.toString()) },
                             modifier = Modifier.fillMaxWidth(),
@@ -610,15 +667,12 @@ fun QuestionnaireScreen(onSubmitted: () -> Unit) {
                             if (submitState is UiState.Error) {
                                 InlineError((submitState as UiState.Error).message)
                             }
-                            Button(
+                            PrimaryButton(
+                                text = if (submitState is UiState.Loading) "Matching…" else "Find my Pokémon",
                                 onClick = { vm.submitAnswers(list.map { AnswerInput(it.id, answers[it.id] ?: 3) }) },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = submitState !is UiState.Loading,
-                                style = ButtonStyle.Primary,
-                                buttonSize = ButtonSize.Large,
-                            ) {
-                                androidx.compose.material3.Text(if (submitState is UiState.Loading) "Matching…" else "Find my Pokémon")
-                            }
+                            )
                         }
                     }
                 }
@@ -685,13 +739,7 @@ fun ProcessingScreen(onGenerated: () -> Unit) {
                         modifier = Modifier.padding(32.dp).widthIn(max = 360.dp),
                     ) {
                         InlineError((state as UiState.Error).message)
-                        Button(
-                            onClick = { vm.generate() },
-                            modifier = Modifier.fillMaxWidth(),
-                            style = ButtonStyle.Primary,
-                        ) {
-                            androidx.compose.material3.Text("Try again")
-                        }
+                        PrimaryButton("Try again", { vm.generate() }, Modifier.fillMaxWidth())
                     }
                     else -> Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -751,7 +799,7 @@ fun ResultScreen(
     LaunchedEffect(Unit) { if (state is UiState.Idle) vm.load() }
 
     PokemonTheme {
-        PokeScreen {
+        PokeScreen(applyInsets = false) {
             when (state) {
                 is UiState.Loading, UiState.Idle -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     IndeterminateProgressIndicator(
@@ -796,9 +844,7 @@ private fun EmptyResultState(onTakeQuiz: () -> Unit, onSignOut: () -> Unit) {
                 style = BodyStyle, textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
-            Button(onClick = onTakeQuiz, modifier = Modifier.fillMaxWidth(), style = ButtonStyle.Primary, buttonSize = ButtonSize.Large) {
-                androidx.compose.material3.Text("Take the quiz")
-            }
+            PrimaryButton("Take the quiz", onTakeQuiz, Modifier.fillMaxWidth())
             Button(onClick = onSignOut, modifier = Modifier.fillMaxWidth(), style = ButtonStyle.Ghost) {
                 androidx.compose.material3.Text("Sign out")
             }
@@ -816,77 +862,88 @@ private fun ResultList(
 ) {
     val top = recs.first()
     val others = recs.drop(1)
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-        // Top bar
-        item {
+    Column(Modifier.fillMaxSize()) {
+        // Pinned toolbar — white background bleeds up under the status bar
+        Column(
+            Modifier.fillMaxWidth()
+                .background(PokeColors.White)
+                .statusBarsPadding()
+        ) {
             Row(
-                Modifier.fillMaxWidth()
-                    .background(PokeColors.White)
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(PokeColors.PokeRed))
-                    androidx.compose.material3.Text("Your Matches", style = TitleStyle)
+                    androidx.compose.material3.Text(
+                        "Your Matches", style = TitleStyle,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
                 }
-                Button(onClick = onSignOut, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                    androidx.compose.material3.Text("Sign out", style = LabelStyle)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(onClick = onViewHistory, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
+                        androidx.compose.material3.Text("History", style = LabelStyle)
+                    }
+                    Button(onClick = onTakeQuiz, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
+                        androidx.compose.material3.Text("Retake", style = LabelStyle)
+                    }
+                    Button(onClick = onSignOut, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
+                        androidx.compose.material3.Text("Sign out", style = LabelStyle)
+                    }
                 }
             }
             androidx.compose.material3.HorizontalDivider(color = PokeColors.Border, thickness = 1.dp)
         }
 
-        // Hero card — full-bleed artwork with radial glow
-        item {
-            Spacer(Modifier.height(16.dp))
-            var heroVisible by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { heroVisible = true }
-            AnimatedVisibility(
-                heroVisible,
-                enter = fadeIn(tween(400)) + scaleIn(tween(400, easing = { it }), initialScale = 0.96f),
-            ) {
-                HeroCard(rec = top, onClick = { onSelect(top) })
-            }
-            Spacer(Modifier.height(20.dp))
-        }
-
-        // Other matches label
-        if (others.isNotEmpty()) {
+        LazyColumn(
+            Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = 40.dp + navBottom)
+        ) {
+            // Hero card — full-bleed artwork with radial glow
             item {
-                Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-                    SectionLabel("Other matches")
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-            itemsIndexed(others) { index, rec ->
-                var visible by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.delay((index * 80 + 100).toLong())
-                    visible = true
-                }
+                Spacer(Modifier.height(16.dp))
+                var heroVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { heroVisible = true }
                 AnimatedVisibility(
-                    visible,
-                    enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 2 },
+                    heroVisible,
+                    enter = fadeIn(tween(400)) + scaleIn(tween(400, easing = { it }), initialScale = 0.96f),
                 ) {
-                    SecondaryCard(rec = rec, onClick = { onSelect(rec) })
+                    HeroCard(rec = top, onClick = { onSelect(top) })
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(20.dp))
             }
-        }
 
-        item {
-            Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier.padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(onClick = onTakeQuiz, modifier = Modifier.weight(1f), style = ButtonStyle.Outlined) {
-                    androidx.compose.material3.Text("Retake quiz")
+            // Other matches label
+            if (others.isNotEmpty()) {
+                item {
+                    Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                        SectionLabel("Other matches")
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
-                Button(onClick = onViewHistory, modifier = Modifier.weight(1f), style = ButtonStyle.Outlined) {
-                    androidx.compose.material3.Text("History")
+                itemsIndexed(others) { index, rec ->
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        kotlinx.coroutines.delay((index * 80 + 100).toLong())
+                        visible = true
+                    }
+                    AnimatedVisibility(
+                        visible,
+                        enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 2 },
+                    ) {
+                        SecondaryCard(rec = rec, onClick = { onSelect(rec) })
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
@@ -895,7 +952,7 @@ private fun ResultList(
 
 @Composable
 private fun HeroCard(rec: Recommendation, onClick: () -> Unit) {
-    val pct = "${"%.0f".format(rec.matchScore * 100)}%"
+    val pct = "${(rec.matchScore * 100).toInt()}%"
     val glowColor = PokeColors.PokeRed
 
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -971,7 +1028,7 @@ private fun HeroCard(rec: Recommendation, onClick: () -> Unit) {
 
 @Composable
 private fun SecondaryCard(rec: Recommendation, onClick: () -> Unit) {
-    val pct = "${"%.0f".format(rec.matchScore * 100)}%"
+    val pct = "${(rec.matchScore * 100).toInt()}%"
     Row(
         Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -1014,141 +1071,295 @@ private fun SecondaryCard(rec: Recommendation, onClick: () -> Unit) {
 
 // ── Pokémon Detail ────────────────────────────────────────────────────────────
 
+private fun Color.darken(f: Float): Color = lerp(this, Color.Black, f)
+private fun Color.lighten(f: Float): Color = lerp(this, Color.White, f)
+
+// Canonical defending weaknesses derived from the (single) primary type.
+private fun typeWeaknesses(type: String): List<String> = when (type.lowercase()) {
+    "fire"     -> listOf("water", "ground", "rock")
+    "water"    -> listOf("electric", "grass")
+    "grass"    -> listOf("fire", "ice", "poison", "flying", "bug")
+    "electric" -> listOf("ground")
+    "ice"      -> listOf("fire", "fighting", "rock", "steel")
+    "fighting" -> listOf("flying", "psychic")
+    "poison"   -> listOf("ground", "psychic")
+    "ground"   -> listOf("water", "grass", "ice")
+    "flying"   -> listOf("electric", "ice", "rock")
+    "psychic"  -> listOf("bug", "ghost", "dark")
+    "bug"      -> listOf("fire", "flying", "rock")
+    "rock"     -> listOf("water", "grass", "fighting", "ground", "steel")
+    "ghost"    -> listOf("ghost", "dark")
+    "dragon"   -> listOf("ice", "dragon")
+    "dark"     -> listOf("fighting", "bug")
+    "steel"    -> listOf("fire", "fighting", "ground")
+    else       -> listOf("fighting")
+}
+
 @Composable
 fun PokemonDetailScreen(recommendation: Recommendation, profile: PersonalityProfile?, onBack: () -> Unit) {
     val pokemon = recommendation.pokemon
-    val pct = "${"%.0f".format(recommendation.matchScore * 100)}%"
-    val accent = if (recommendation.rank == 1) PokeColors.PokeRed else PokeColors.Blue
-    val heroBg = if (recommendation.rank == 1) PokeColors.PokeRedLight else PokeColors.BlueLight
+    // Real types from the API; fall back to name-derived type until a sync populates them.
+    val types = pokemon.types.ifEmpty { listOf(pokemonType(pokemon.name)) }
+    val accent = typeColor(types.first())
+    val secondary = types.getOrNull(1)?.let { typeColor(it) } ?: accent
+    val numberLabel = pokemon.externalId
+        ?.let { "N°" + it.toString().padStart(3, '0') }
+        ?: "RANK #${recommendation.rank}"
+    val heroGradient = Brush.verticalGradient(listOf(accent.lighten(0.08f), accent, accent.darken(0.28f)))
 
     PokemonTheme {
-        PokeScreen {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 48.dp)) {
-                // Back nav
-                item {
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .background(PokeColors.White)
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth >= 720.dp
+            if (wide) {
+                // Desktop / large tablet: the same card, centered on an ambient gradient.
+                Box(
+                    Modifier.fillMaxSize()
+                        .background(Brush.linearGradient(listOf(accent.lighten(0.7f), secondary.lighten(0.5f))))
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Card(
+                        modifier = Modifier.width(460.dp).fillMaxHeight(0.94f),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 18.dp),
                     ) {
-                        Button(onClick = onBack, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                            androidx.compose.material3.Text("← Back", style = LabelStyle.copy(color = accent))
-                        }
-                        androidx.compose.material3.Text(
-                            pokemon.name.replaceFirstChar { it.uppercase() },
-                            style = LabelStyle
-                        )
-                    }
-                    androidx.compose.material3.HorizontalDivider(color = PokeColors.Border, thickness = 1.dp)
-                }
-
-                // Hero artwork with radial glow
-                item {
-                    Box(
-                        Modifier.fillMaxWidth().height(280.dp)
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(heroBg, PokeColors.Cream),
-                                    radius = 500f,
-                                )
-                            )
-                    ) {
-                        AnimatedPokemonSprite(
-                            name = pokemon.name,
-                            imageUrl = pokemon.imageUrl,
-                            modifier = Modifier.size(260.dp).align(Alignment.Center),
+                        DetailScroll(
+                            recommendation, profile, types, accent, numberLabel, onBack,
+                            heroGradient = heroGradient, heroHeight = 300.dp,
+                            modifier = Modifier.fillMaxSize(), applyInsets = false,
                         )
                     }
                 }
+            } else {
+                // Phone: full-bleed; gradient runs under the status bar, content insets.
+                DetailScroll(
+                    recommendation, profile, types, accent, numberLabel, onBack,
+                    heroGradient = heroGradient, heroHeight = 320.dp,
+                    modifier = Modifier.fillMaxSize(), applyInsets = true,
+                )
+            }
+        }
+    }
+}
 
-                // Name + score + rank
-                item {
-                    Column(Modifier.background(PokeColors.White)) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                androidx.compose.material3.Text(
-                                    pokemon.name.replaceFirstChar { it.uppercase() },
-                                    style = DisplayStyle
-                                )
-                                androidx.compose.material3.Text("Rank #${recommendation.rank}", style = LabelStyle)
-                            }
-                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                androidx.compose.material3.Text(
-                                    pct,
-                                    style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, color = accent)
-                                )
-                                androidx.compose.material3.Text("match", style = LabelStyle)
-                            }
-                        }
-                        androidx.compose.material3.HorizontalDivider(
-                            Modifier.padding(horizontal = 24.dp), color = PokeColors.Border, thickness = 1.dp
-                        )
-                    }
+@Composable
+private fun DetailScroll(
+    recommendation: Recommendation,
+    profile: PersonalityProfile?,
+    types: List<String>,
+    accent: Color,
+    numberLabel: String,
+    onBack: () -> Unit,
+    heroGradient: Brush,
+    heroHeight: Dp,
+    modifier: Modifier,
+    applyInsets: Boolean,
+) {
+    val pokemon = recommendation.pokemon
+    Box(modifier.background(heroGradient)) {
+        val scrollMod = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        Column(if (applyInsets) scrollMod.windowInsetsPadding(WindowInsets.systemBars) else scrollMod) {
+            PokedexHero(
+                name = pokemon.name,
+                imageUrl = pokemon.imageUrl,
+                accent = accent,
+                onBack = onBack,
+                modifier = Modifier.fillMaxWidth().height(heroHeight),
+            )
+            PokedexPanel(
+                recommendation = recommendation,
+                profile = profile,
+                types = types,
+                accent = accent,
+                numberLabel = numberLabel,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PokedexHero(
+    name: String,
+    imageUrl: String?,
+    accent: Color,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.radialGradient(listOf(Color.White.copy(alpha = 0.14f), Color.Transparent), radius = 600f)
+            )
+        )
+        SparklePattern(Modifier.fillMaxSize())
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.8f).aspectRatio(1f).offset(y = 22.dp)
+                .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.34f), Color.Transparent)), CircleShape)
+        )
+        OpenPokeball(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.74f).aspectRatio(1f).offset(y = 16.dp),
+        )
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = name,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.align(Alignment.Center).fillMaxWidth(0.66f).aspectRatio(1f).offset(y = (-4).dp),
+            )
+        }
+        Box(
+            Modifier.padding(16.dp).align(Alignment.TopStart)
+                .size(40.dp).clip(CircleShape)
+                .background(Color.White)
+                .clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.material3.Text(
+                "←",
+                style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = accent.darken(0.2f)),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PokedexPanel(
+    recommendation: Recommendation,
+    profile: PersonalityProfile?,
+    types: List<String>,
+    accent: Color,
+    numberLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    val pokemon = recommendation.pokemon
+    val matchPct = (recommendation.matchScore * 100).toInt()
+    val weaknesses = types.flatMap { typeWeaknesses(it) }.distinct()
+    val baseStats = listOfNotNull(
+        pokemon.hp?.let { "HP" to it },
+        pokemon.attack?.let { "Attack" to it },
+        pokemon.defense?.let { "Defense" to it },
+        pokemon.specialAttack?.let { "Sp. Atk" to it },
+        pokemon.specialDefense?.let { "Sp. Def" to it },
+        pokemon.speed?.let { "Speed" to it },
+    )
+
+    Column(
+        modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+            androidx.compose.material3.Text(
+                pokemon.name.replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 2f), 8f),
+                ),
+            )
+            androidx.compose.material3.Text(
+                numberLabel,
+                style = MaterialTheme.typography.titleMedium.copy(color = Color.White.copy(alpha = 0.9f), fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Pill("$matchPct% MATCH")
+            Pill("RANK #${recommendation.rank}")
+        }
+
+        recommendation.explanation?.let { why ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                CardSectionLabel("Why you matched")
+                androidx.compose.material3.Text(
+                    why.replace("**", ""),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.92f), lineHeight = 21.sp),
+                )
+            }
+        }
+
+        pokemon.description?.let { desc ->
+            androidx.compose.material3.Text(
+                desc,
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.82f), lineHeight = 20.sp),
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CardSectionLabel("Type")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                types.forEach { DetailTypeBadge(it) }
+            }
+        }
+
+        if (profile != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CardSectionLabel("Personality")
+                listOf(
+                    Triple("Energy", profile.energy, Color(0xFFFFA726)),
+                    Triple("Curiosity", profile.curiosity, Color(0xFF29B6F6)),
+                    Triple("Leadership", profile.leadership, Color(0xFFAB47BC)),
+                    Triple("Loyalty", profile.loyalty, Color(0xFF66BB6A)),
+                    Triple("Risk", profile.risk, Color(0xFFEF5350)),
+                    Triple("Creativity", profile.creativity, Color(0xFFEC407A)),
+                ).forEach { (label, value, color) ->
+                    CardStatRow(label, value.toFloat().coerceIn(0f, 1f), null, color)
                 }
+            }
+        }
 
-                // Why you match
-                recommendation.explanation?.let { explanation ->
-                    item {
-                        Column(
-                            Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            SectionLabel("Why you match", accent)
-                            androidx.compose.material3.Text(
-                                explanation.replace("**", ""),
-                                style = BodyStyle.copy(fontSize = 15.sp, lineHeight = 24.sp, color = PokeColors.Ink)
-                            )
-                        }
-                        androidx.compose.material3.HorizontalDivider(
-                            Modifier.padding(horizontal = 24.dp), color = PokeColors.Border, thickness = 1.dp
-                        )
-                    }
-                }
+        if (pokemon.category != null || pokemon.weight != null || pokemon.height != null) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                pokemon.category?.let { InfoLine("Category", it) }
+                pokemon.weight?.let { InfoLine("Weight", "${it / 10}.${it % 10} kg") }
+                pokemon.height?.let { InfoLine("Height", "${it / 10}.${it % 10} m") }
+            }
+        }
 
-                // Personality traits
-                if (profile != null) {
-                    item {
-                        Column(
-                            Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            SectionLabel("Your personality", accent)
-                            listOf(
-                                "Energy"      to profile.energy,
-                                "Curiosity"   to profile.curiosity,
-                                "Leadership"  to profile.leadership,
-                                "Loyalty"     to profile.loyalty,
-                                "Risk-taking" to profile.risk,
-                                "Creativity"  to profile.creativity,
-                            ).forEach { (label, value) ->
-                                StatBar(label = label, value = value, accent = accent)
-                            }
-                        }
-                        androidx.compose.material3.HorizontalDivider(
-                            Modifier.padding(horizontal = 24.dp), color = PokeColors.Border, thickness = 1.dp
-                        )
-                    }
-                }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CardSectionLabel("Weaknesses")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                weaknesses.forEach { DetailTypeBadge(it) }
+            }
+        }
 
-                // About Pokémon
-                pokemon.description?.let { desc ->
-                    item {
-                        Column(
-                            Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            SectionLabel("About ${pokemon.name.replaceFirstChar { it.uppercase() }}", PokeColors.MutedLight)
-                            androidx.compose.material3.Text(
-                                desc,
-                                style = BodyStyle.copy(fontSize = 14.sp, lineHeight = 22.sp)
-                            )
-                        }
+        StatsAccordion(baseStats)
+    }
+}
+
+@Composable
+private fun StatsAccordion(stats: List<Pair<String, Int>>) {
+    var open by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f)),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CardSectionLabel("Base Stats")
+            androidx.compose.material3.Text(
+                if (open) "▲" else "▼",
+                style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.7f)),
+            )
+        }
+        AnimatedVisibility(open) {
+            Column(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (stats.isEmpty()) {
+                    androidx.compose.material3.Text(
+                        "Base stats aren't available yet — sync the Pokédex to populate them.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.7f)),
+                    )
+                } else {
+                    stats.forEach { (label, value) ->
+                        CardStatRow(label, (value / 200f).coerceIn(0f, 1f), value.toString())
                     }
                 }
             }
@@ -1157,36 +1368,239 @@ fun PokemonDetailScreen(recommendation: Recommendation, profile: PersonalityProf
 }
 
 @Composable
-private fun StatBar(label: String, value: Double, accent: Color) {
-    val pct = (value * 100).toInt()
+private fun InfoLine(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        CardSectionLabel(label)
+        androidx.compose.material3.Text(
+            value,
+            style = MaterialTheme.typography.titleMedium.copy(color = Color.White, fontWeight = FontWeight.Bold),
+        )
+    }
+}
+
+@Composable
+private fun SparklePattern(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val step = 46f
+        val s = 3.2f
+        val color = Color.White.copy(alpha = 0.07f)
+        var y = 0f
+        var row = 0
+        while (y < size.height + step) {
+            var x = if (row % 2 == 0) 0f else step / 2f
+            while (x < size.width + step) {
+                drawLine(color, Offset(x, y - s), Offset(x, y + s), strokeWidth = 1.5f)
+                drawLine(color, Offset(x - s, y), Offset(x + s, y), strokeWidth = 1.5f)
+                x += step
+            }
+            y += step
+            row++
+        }
+    }
+}
+
+@Composable
+private fun OpenPokeball(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(Res.drawable.pokeball_open),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun CardSectionLabel(text: String) {
+    androidx.compose.material3.Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelMedium.copy(
+            color = Color.White.copy(alpha = 0.65f), fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp
+        ),
+    )
+}
+
+@Composable
+private fun CardStatRow(label: String, fraction: Float, valueLabel: String?, color: Color = Color.White) {
     var triggered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { triggered = true }
-    val animatedWidth by animateFloatAsState(
-        targetValue = if (triggered) value.toFloat().coerceIn(0f, 1f) else 0f,
+    val w by animateFloatAsState(
+        targetValue = if (triggered) fraction.coerceIn(0f, 1f) else 0f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
     )
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            androidx.compose.material3.Text(label, style = LabelStyle.copy(color = PokeColors.Ink))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Colored dot carries the trait's identity; the label stays white for readability.
+        Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+        androidx.compose.material3.Text(
+            label,
+            modifier = Modifier.width(80.dp),
+            style = MaterialTheme.typography.labelMedium.copy(color = Color.White, fontWeight = FontWeight.Medium),
+        )
+        Box(Modifier.weight(1f).height(10.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.28f))) {
+            Box(Modifier.fillMaxWidth(w).fillMaxHeight().clip(CircleShape).background(color))
+        }
+        if (valueLabel != null) {
             androidx.compose.material3.Text(
-                "${pct}%",
-                style = MonoStyle.copy(
-                    color = if (value >= 0.65) accent else PokeColors.MutedLight,
-                    fontSize = 12.sp
-                )
+                valueLabel,
+                modifier = Modifier.width(30.dp),
+                style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold),
             )
         }
-        Box(
-            Modifier.fillMaxWidth().height(7.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(PokeColors.CreamDeep)
-        ) {
-            Box(
-                Modifier.fillMaxWidth(animatedWidth).fillMaxHeight()
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(if (value >= 0.65) accent else accent.copy(alpha = 0.35f))
-            )
+    }
+}
+
+@Composable
+private fun Pill(text: String) {
+    Box(
+        Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        androidx.compose.material3.Text(
+            text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp
+            ),
+        )
+    }
+}
+
+@Composable
+private fun DetailTypeBadge(type: String) {
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(typeColor(type))
+            .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        TypeIcon(type, 22.dp)
+        androidx.compose.material3.Text(
+            type.replaceFirstChar { it.uppercase() },
+            style = MaterialTheme.typography.labelMedium.copy(color = Color.White, fontWeight = FontWeight.SemiBold),
+        )
+    }
+}
+
+@Composable
+private fun TypeIcon(type: String, diameter: Dp) {
+    Canvas(Modifier.size(diameter)) {
+        val rr = size.minDimension / 2f
+        // White disc so the type colour reads as the glyph against it.
+        drawCircle(Color.White, rr, center)
+        drawTypeGlyph(type, center, rr * 0.62f, typeColor(type), Color.White)
+    }
+}
+
+private fun DrawScope.drawTypeGlyph(type: String, c: Offset, r: Float, fg: Color, bg: Color) {
+    when (type.lowercase()) {
+        "fire" -> drawPath(Path().apply {
+            moveTo(c.x, c.y - r)
+            cubicTo(c.x + r, c.y - r * 0.1f, c.x + r * 0.55f, c.y + r, c.x, c.y + r)
+            cubicTo(c.x - r * 0.55f, c.y + r, c.x - r, c.y - r * 0.1f, c.x, c.y - r)
+            close()
+        }, fg)
+        "water" -> drawPath(Path().apply {
+            moveTo(c.x, c.y - r)
+            cubicTo(c.x + r * 0.95f, c.y + r * 0.1f, c.x + r * 0.6f, c.y + r, c.x, c.y + r)
+            cubicTo(c.x - r * 0.6f, c.y + r, c.x - r * 0.95f, c.y + r * 0.1f, c.x, c.y - r)
+            close()
+        }, fg)
+        "grass" -> {
+            drawPath(Path().apply {
+                moveTo(c.x - r * 0.8f, c.y + r * 0.7f)
+                cubicTo(c.x - r * 0.4f, c.y - r, c.x + r * 0.4f, c.y - r, c.x + r * 0.8f, c.y - r * 0.7f)
+                cubicTo(c.x + r * 0.4f, c.y + r, c.x - r * 0.4f, c.y + r, c.x - r * 0.8f, c.y + r * 0.7f)
+                close()
+            }, fg)
+            drawLine(bg, Offset(c.x - r * 0.45f, c.y + r * 0.4f), Offset(c.x + r * 0.45f, c.y - r * 0.4f), strokeWidth = r * 0.16f)
         }
+        "bug" -> {
+            val head = Offset(c.x, c.y - r * 0.55f)
+            val thorax = Offset(c.x, c.y - r * 0.02f)
+            val abdomen = Offset(c.x, c.y + r * 0.52f)
+            // antennae
+            drawLine(fg, head, Offset(c.x - r * 0.4f, c.y - r), strokeWidth = r * 0.1f)
+            drawLine(fg, head, Offset(c.x + r * 0.4f, c.y - r), strokeWidth = r * 0.1f)
+            // legs
+            listOf(-0.25f, 0f, 0.25f).forEach { dy ->
+                val y = thorax.y + dy * r
+                drawLine(fg, Offset(c.x - r * 0.18f, y), Offset(c.x - r * 0.7f, y - r * 0.12f), strokeWidth = r * 0.08f)
+                drawLine(fg, Offset(c.x + r * 0.18f, y), Offset(c.x + r * 0.7f, y - r * 0.12f), strokeWidth = r * 0.08f)
+            }
+            // body segments
+            drawCircle(fg, r * 0.4f, abdomen)
+            drawCircle(fg, r * 0.27f, thorax)
+            drawCircle(fg, r * 0.24f, head)
+        }
+        "electric" -> drawPath(Path().apply {
+            moveTo(c.x + r * 0.35f, c.y - r)
+            lineTo(c.x - r * 0.55f, c.y + r * 0.15f)
+            lineTo(c.x - r * 0.02f, c.y + r * 0.15f)
+            lineTo(c.x - r * 0.35f, c.y + r)
+            lineTo(c.x + r * 0.55f, c.y - r * 0.15f)
+            lineTo(c.x + r * 0.02f, c.y - r * 0.15f)
+            close()
+        }, fg)
+        "ice" -> listOf(90.0, 30.0, 150.0).forEach { deg ->
+            val rad = (deg * PI / 180).toFloat()
+            val dx = cos(rad) * r
+            val dy = sin(rad) * r
+            drawLine(fg, Offset(c.x - dx, c.y - dy), Offset(c.x + dx, c.y + dy), strokeWidth = r * 0.22f)
+        }
+        "psychic", "fairy" -> {
+            drawCircle(fg, r, c, style = Stroke(width = r * 0.28f))
+            drawCircle(fg, r * 0.34f, c)
+        }
+        "ghost" -> {
+            drawPath(Path().apply {
+                moveTo(c.x - r, c.y + r)
+                lineTo(c.x - r, c.y)
+                cubicTo(c.x - r, c.y - r * 1.3f, c.x + r, c.y - r * 1.3f, c.x + r, c.y)
+                lineTo(c.x + r, c.y + r)
+                lineTo(c.x + r * 0.5f, c.y + r * 0.6f)
+                lineTo(c.x, c.y + r)
+                lineTo(c.x - r * 0.5f, c.y + r * 0.6f)
+                close()
+            }, fg)
+            drawCircle(bg, r * 0.16f, Offset(c.x - r * 0.32f, c.y - r * 0.1f))
+            drawCircle(bg, r * 0.16f, Offset(c.x + r * 0.32f, c.y - r * 0.1f))
+        }
+        "poison" -> {
+            drawCircle(fg, r * 0.55f, Offset(c.x - r * 0.35f, c.y + r * 0.3f))
+            drawCircle(fg, r * 0.42f, Offset(c.x + r * 0.45f, c.y + r * 0.1f))
+            drawCircle(fg, r * 0.5f, Offset(c.x, c.y - r * 0.4f))
+        }
+        "rock", "ground" -> {
+            drawRect(fg, topLeft = Offset(c.x - r, c.y), size = Size(2 * r, r * 0.55f))
+            drawRect(fg, topLeft = Offset(c.x - r * 0.6f, c.y - r * 0.7f), size = Size(1.2f * r, r * 0.55f))
+        }
+        "fighting" -> {
+            // a clenched fist: palm + four knuckles + thumb
+            drawCircle(fg, r * 0.6f, Offset(c.x, c.y + r * 0.18f))
+            listOf(-0.42f, -0.14f, 0.14f, 0.42f).forEach { dx ->
+                drawCircle(fg, r * 0.15f, Offset(c.x + dx * r, c.y - r * 0.34f))
+            }
+            drawCircle(fg, r * 0.2f, Offset(c.x - r * 0.62f, c.y + r * 0.05f))
+        }
+        "flying" -> {
+            drawLine(fg, Offset(c.x - r, c.y + r * 0.3f), Offset(c.x, c.y - r * 0.5f), strokeWidth = r * 0.3f)
+            drawLine(fg, Offset(c.x, c.y - r * 0.5f), Offset(c.x + r, c.y + r * 0.3f), strokeWidth = r * 0.3f)
+        }
+        "dragon" -> drawPath(Path().apply {
+            moveTo(c.x, c.y - r); lineTo(c.x + r, c.y); lineTo(c.x, c.y + r); lineTo(c.x - r, c.y); close()
+        }, fg)
+        "dark" -> {
+            drawCircle(fg, r, c)
+            drawCircle(bg, r * 0.92f, Offset(c.x + r * 0.5f, c.y - r * 0.32f))
+        }
+        "steel" -> drawPath(Path().apply {
+            for (i in 0 until 6) {
+                val a = (PI / 3 * i - PI / 2).toFloat()
+                val x = c.x + cos(a) * r
+                val y = c.y + sin(a) * r
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }, fg)
+        else -> drawCircle(fg, r * 0.7f, c) // normal & any unmapped type
     }
 }
 
@@ -1300,7 +1714,7 @@ private fun HistoryRow(rec: Recommendation) {
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             androidx.compose.material3.Text(
-                "${"%.0f".format(rec.matchScore * 100)}%",
+                "${(rec.matchScore * 100).toInt()}%",
                 style = MonoStyle.copy(color = PokeColors.Blue)
             )
             androidx.compose.material3.Text("#${rec.rank}", style = LabelStyle)

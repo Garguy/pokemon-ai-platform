@@ -13,8 +13,8 @@ class PokemonAiApp : Application() {
         startKoin {
             androidContext(this@PokemonAiApp)
             modules(
-                sharedModule(serverUrl = "http://10.0.2.2:8080/graphql"),
-                module { single { PlatformTokenStorage(androidContext()) } },
+                sharedModule(serverUrl = "http://localhost:8080/graphql"),
+                module { single<com.pokemonai.client.core.TokenStorage> { PlatformTokenStorage(androidContext()) } },
             )
         }
     }

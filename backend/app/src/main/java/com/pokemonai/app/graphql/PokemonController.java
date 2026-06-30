@@ -42,13 +42,6 @@ public class PokemonController {
     }
 
     private Map<String, Object> toMap(Pokemon p) {
-        return Map.of(
-                "id", p.getId().toString(),
-                "externalId", p.getExternalId(),
-                "name", p.getName(),
-                "description", p.getDescription() != null ? p.getDescription() : "",
-                "imageUrl", p.getImageUrl() != null ? p.getImageUrl() : "",
-                "syncedAt", p.getSyncedAt().toString()
-        );
+        return PokemonMaps.toMap(p);
     }
 }

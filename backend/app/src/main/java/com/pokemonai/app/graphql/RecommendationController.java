@@ -96,14 +96,7 @@ public class RecommendationController {
                     .orElseThrow(() -> new ResourceNotFoundException("Pokemon", r.getPokemonId()));
             Map<String, Object> map = new HashMap<>();
             map.put("id", r.getId().toString());
-            map.put("pokemon", Map.of(
-                    "id", pokemon.getId().toString(),
-                    "externalId", pokemon.getExternalId(),
-                    "name", pokemon.getName(),
-                    "description", pokemon.getDescription() != null ? pokemon.getDescription() : "",
-                    "imageUrl", pokemon.getImageUrl() != null ? pokemon.getImageUrl() : "",
-                    "syncedAt", pokemon.getSyncedAt().toString()
-            ));
+            map.put("pokemon", PokemonMaps.toMap(pokemon));
             map.put("matchScore", r.getMatchScore().doubleValue());
             map.put("rank", (int) r.getRank());
             map.put("explanation", r.getExplanation());

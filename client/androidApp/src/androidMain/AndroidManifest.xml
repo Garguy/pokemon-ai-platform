@@ -4,7 +4,8 @@
     <application
         android:name=".PokemonAiApp"
         android:label="Pokémon AI"
-        android:theme="@style/Theme.PokemonAi">
+        android:theme="@style/Theme.PokemonAi"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true">

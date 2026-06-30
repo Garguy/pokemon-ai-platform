@@ -33,6 +33,16 @@ type Pokemon {
     description: String
     imageUrl: String
     syncedAt: String!
+    types: [String!]!
+    height: Int
+    weight: Int
+    category: String
+    hp: Int
+    attack: Int
+    defense: Int
+    specialAttack: Int
+    specialDefense: Int
+    speed: Int
 }
 
 type PokemonPage {

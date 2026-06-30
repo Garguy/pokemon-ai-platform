@@ -22,9 +22,12 @@ public class PokemonSyncScheduler {
     }
 
     @EventListener(ApplicationReadyEvent.class)
-    public void syncOnStartupIfEmpty() {
+    public void syncOnStartupIfNeeded() {
         if (pokemonRepository.count() == 0) {
             log.info("Pokemon table is empty — triggering initial sync");
+            syncService.syncAll();
+        } else if (pokemonRepository.existsByTypesCsvIsNull()) {
+            log.info("Pokemon rows missing detail fields — triggering backfill sync");
             syncService.syncAll();
         }
     }
