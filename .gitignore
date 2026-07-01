@@ -25,3 +25,13 @@ application-local.properties
 # Logs
 *.log
 logs/
+
+# Claude Code / Harness tool files
+.claude/
+.claude-plugin/
+client/.claude/
+harness.toml
+com/
+
+# Compiled class files outside build dirs
+**/*.class
