@@ -52,6 +52,12 @@ public class RecommendationController {
         return toMaps(recommendationEngine.findForUser(userId));
     }
 
+    @QueryMapping
+    public List<Map<String, Object>> myHistory(Authentication authentication) {
+        UUID userId = resolveUserId(authentication);
+        return toMaps(recommendationEngine.findHistory(userId));
+    }
+
     @MutationMapping
     public List<Map<String, Object>> generateRecommendations(Authentication authentication) {
         UUID userId = resolveUserId(authentication);
@@ -59,14 +65,18 @@ public class RecommendationController {
         PersonalityProfile profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new PokemonAiException("Complete the questionnaire before generating matches"));
 
-        // Single Gemini call — returns names + scores + explanations together
+        // Single LLM call — returns names + scores + explanations together.
+        // Pass the full roster so the model picks valid names across all types.
+        List<String> availablePokemon = pokemonRepository.findAllNames();
+
         List<RankedMatch> matches = aiRecommendationService.rankPokemon(
                 profile.getEnergy().doubleValue(),
                 profile.getCuriosity().doubleValue(),
                 profile.getLeadership().doubleValue(),
                 profile.getLoyalty().doubleValue(),
                 profile.getRisk().doubleValue(),
-                profile.getCreativity().doubleValue());
+                profile.getCreativity().doubleValue(),
+                availablePokemon);
 
         List<RankedPokemon> ranked = new ArrayList<>();
         for (RankedMatch match : matches) {

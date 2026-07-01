@@ -1,0 +1,26 @@
+query MyHistory {
+    myHistory {
+        id
+        pokemon {
+            id
+            externalId
+            name
+            description
+            imageUrl
+            types
+            height
+            weight
+            category
+            hp
+            attack
+            defense
+            specialAttack
+            specialDefense
+            speed
+        }
+        matchScore
+        rank
+        explanation
+        generatedAt
+    }
+}

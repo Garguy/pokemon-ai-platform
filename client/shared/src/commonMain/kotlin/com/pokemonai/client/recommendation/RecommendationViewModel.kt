@@ -26,8 +26,18 @@ class RecommendationViewModel(
         }
     }
 
-    fun generate() {
+    fun loadHistory() {
         _state.value = UiState.Loading
+        scope.launch {
+            _state.value = try {
+                UiState.Success(repository.getHistory())
+            } catch (e: Exception) {
+                UiState.Error(e.message ?: "Failed to load history")
+            }
+        }
+    }
+
+    fun generate() {        _state.value = UiState.Loading
         scope.launch {
             _state.value = try {
                 val sorted = repository.generate().sortedBy { it.rank }

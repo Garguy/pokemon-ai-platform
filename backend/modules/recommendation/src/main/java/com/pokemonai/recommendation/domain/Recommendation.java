@@ -19,6 +19,9 @@ public class Recommendation {
     @Column(name = "pokemon_id", nullable = false)
     private UUID pokemonId;
 
+    @Column(name = "batch_id", nullable = false)
+    private UUID batchId;
+
     @Column(name = "match_score", nullable = false, precision = 7, scale = 6)
     private BigDecimal matchScore;
 
@@ -40,9 +43,20 @@ public class Recommendation {
         this.rank = rank;
     }
 
+    public Recommendation(UUID userId, UUID pokemonId, UUID batchId, BigDecimal matchScore,
+                          short rank, OffsetDateTime generatedAt) {
+        this.userId = userId;
+        this.pokemonId = pokemonId;
+        this.batchId = batchId;
+        this.matchScore = matchScore;
+        this.rank = rank;
+        this.generatedAt = generatedAt;
+    }
+
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
     public UUID getPokemonId() { return pokemonId; }
+    public UUID getBatchId() { return batchId; }
     public BigDecimal getMatchScore() { return matchScore; }
     public short getRank() { return rank; }
     public OffsetDateTime getGeneratedAt() { return generatedAt; }

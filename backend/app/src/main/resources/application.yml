@@ -23,8 +23,8 @@ spring:
       chat:
         options:
           model: llama-3.3-70b-versatile
-          temperature: 0.2
-          max-tokens: 1024
+          temperature: 0.6
+          max-tokens: 2048
 
 pokeapi:
   base-url: https://pokeapi.co

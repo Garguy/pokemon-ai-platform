@@ -1,7 +1,9 @@
 package com.pokemonai.client.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -19,8 +21,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.atan2
 import kotlin.math.PI
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,6 +47,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
@@ -83,14 +89,14 @@ import org.koin.compose.koinInject
 
 // ── Typography ────────────────────────────────────────────────────────────────
 
-private val DisplayStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, color = PokeColors.Ink, lineHeight = 36.sp)
-private val HeroName     = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, color = PokeColors.Ink)
-private val TitleStyle   = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = PokeColors.Ink)
-private val CardName     = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = PokeColors.Ink)
+private val DisplayStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, color = Color.Unspecified, lineHeight = 36.sp)
+private val HeroName     = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, color = Color.Unspecified)
+private val TitleStyle   = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Color.Unspecified)
+private val CardName     = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Color.Unspecified)
 private val BodyStyle    = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, color = PokeColors.Muted, lineHeight = 22.sp)
 private val LabelStyle   = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, color = PokeColors.Muted)
 private val CapStyle     = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 11.sp, letterSpacing = 1.4.sp, color = PokeColors.MutedLight)
-private val MonoStyle    = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = PokeColors.Ink)
+private val MonoStyle    = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = Color.Unspecified)
 
 // ── Primary button (composables Button uses black by default) ─────────────────
 
@@ -103,9 +109,10 @@ private fun PrimaryButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val bg = if (!enabled) PokeColors.PokeRed.copy(alpha = 0.4f)
-             else if (pressed) PokeColors.PokeRedDark
-             else PokeColors.PokeRed
+    val colors = LocalAppColors.current
+    val bg = if (!enabled) colors.primary.copy(alpha = 0.4f)
+             else if (pressed) lerp(colors.primary, Color.Black, 0.12f)
+             else colors.primary
     Box(
         modifier
             .height(52.dp)
@@ -121,7 +128,7 @@ private fun PrimaryButton(
     ) {
         androidx.compose.material3.Text(
             text,
-            style = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = PokeColors.White)
+            style = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = colors.onPrimary)
         )
     }
 }
@@ -447,11 +454,45 @@ private fun PulseGlowEffect(color: Color, t: Float) {
     )
 }
 
+@Composable
+private fun ThemeToggle(modifier: Modifier = Modifier) {
+    val dark = LocalDarkTheme.current
+    val toggle = LocalToggleTheme.current
+    val colors = LocalAppColors.current
+    Box(
+        modifier.size(40.dp).clip(CircleShape).background(colors.surface).clickable { toggle() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(20.dp)) {
+            val c = Offset(size.width / 2f, size.height / 2f)
+            val r = size.minDimension
+            if (dark) {
+                // Crescent moon: a disc with an offset disc carved out in the surface colour.
+                drawCircle(colors.accent, r * 0.34f, c)
+                drawCircle(colors.surface, r * 0.30f, Offset(c.x + r * 0.16f, c.y - r * 0.12f))
+            } else {
+                // Sun: core disc + radiating rays.
+                drawCircle(colors.accent, r * 0.22f, c)
+                val rays = 8
+                for (i in 0 until rays) {
+                    val a = (PI * 2 * i / rays).toFloat()
+                    drawLine(
+                        colors.accent,
+                        Offset(c.x + cos(a) * r * 0.32f, c.y + sin(a) * r * 0.32f),
+                        Offset(c.x + cos(a) * r * 0.46f, c.y + sin(a) * r * 0.46f),
+                        strokeWidth = r * 0.06f,
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
 @Composable
 private fun PokeScreen(applyInsets: Boolean = true, content: @Composable BoxScope.() -> Unit) {
-    Box(Modifier.fillMaxSize().background(PokeColors.Cream)) {
+    Box(Modifier.fillMaxSize().background(LocalAppColors.current.background)) {
         val inner = if (applyInsets) {
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)
         } else {
@@ -467,12 +508,13 @@ private fun PokeCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val colors = LocalAppColors.current
     val base = modifier
         .shadow(elevation = 6.dp, shape = RoundedCornerShape(20.dp),
-            ambientColor = PokeColors.Ink.copy(alpha = 0.05f),
-            spotColor = PokeColors.Ink.copy(alpha = 0.08f))
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.08f))
         .clip(RoundedCornerShape(20.dp))
-        .background(PokeColors.White)
+        .background(colors.surface)
     Column(if (onClick != null) base.clickable(onClick = onClick) else base, content = content)
 }
 
@@ -494,9 +536,10 @@ private fun TypeBadge(type: String) {
 }
 
 @Composable
-private fun SectionLabel(text: String, accent: Color = PokeColors.PokeRed) {
+private fun SectionLabel(text: String, accent: Color? = null) {
+    val color = accent ?: LocalAppColors.current.primary
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.width(3.dp).height(14.dp).clip(RoundedCornerShape(2.dp)).background(accent))
+        Box(Modifier.width(3.dp).height(14.dp).clip(RoundedCornerShape(2.dp)).background(color))
         androidx.compose.material3.Text(text.uppercase(), style = CapStyle)
     }
 }
@@ -531,6 +574,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
     PokemonTheme {
         PokeScreen {
+            val colors = LocalAppColors.current
             Column(
                 Modifier.fillMaxSize().padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -539,12 +583,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 // Pokéball logo
                 Box(
                     Modifier.size(72.dp).clip(CircleShape)
-                        .background(PokeColors.PokeRedLight)
-                        .border(1.5.dp, PokeColors.Border, CircleShape),
+                        .background(colors.primary.copy(alpha = 0.15f))
+                        .border(1.5.dp, colors.border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(Modifier.size(32.dp).clip(CircleShape).background(PokeColors.PokeRed))
-                    Box(Modifier.fillMaxWidth().height(1.5.dp).background(PokeColors.PokeRed.copy(alpha = 0.4f)))
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(colors.primary))
+                    Box(Modifier.fillMaxWidth().height(1.5.dp).background(colors.primary.copy(alpha = 0.4f)))
                 }
                 Spacer(Modifier.height(20.dp))
                 androidx.compose.material3.Text("Pokémon AI", style = DisplayStyle)
@@ -609,105 +653,156 @@ fun QuestionnaireScreen(onSubmitted: () -> Unit) {
     val vm = koinInject<QuestionnaireViewModel>()
     val questions by vm.questions.collectAsState()
     val submitState by vm.submitState.collectAsState()
-    val answers = remember { mutableStateMapOf<String, Int>() }
 
     LaunchedEffect(Unit) { vm.loadQuestions() }
     LaunchedEffect(submitState) { if (submitState is UiState.Success) onSubmitted() }
 
-    PokemonTheme {
-        PokeScreen {
-            Column(Modifier.fillMaxSize()) {
-                // Top bar
-                Row(
-                    Modifier.fillMaxWidth()
-                        .background(PokeColors.White)
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(PokeColors.PokeRed))
-                        androidx.compose.material3.Text("Personality Quiz", style = TitleStyle)
-                    }
-                    androidx.compose.material3.Text("5-question match", style = LabelStyle)
-                }
-                androidx.compose.material3.HorizontalDivider(color = PokeColors.Border, thickness = 1.dp)
-
-                when (questions) {
-                    is UiState.Loading, UiState.Idle -> Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
-                        IndeterminateProgressIndicator(
-                            modifier = Modifier.width(120.dp),
-                            indicatorColor = PokeColors.PokeRed,
-                            trackColor = PokeColors.CreamDeep,
-                        )
-                    }
-                    is UiState.Error -> Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), Alignment.Center) {
-                        InlineError((questions as UiState.Error).message)
-                    }
-                    is UiState.Success -> {
-                        val list = (questions as UiState.Success).data
-                        LazyColumn(
-                            Modifier.weight(1f).padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(vertical = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            itemsIndexed(list) { index, q ->
-                                QuestionCard(
-                                    index = index + 1,
-                                    total = list.size,
-                                    text = q.text,
-                                    value = answers[q.id] ?: 3,
-                                    onValueChange = { answers[q.id] = it },
-                                    category = q.traitCategory,
-                                )
-                            }
-                        }
-                        Column(Modifier.background(PokeColors.White).padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (submitState is UiState.Error) {
-                                InlineError((submitState as UiState.Error).message)
-                            }
-                            PrimaryButton(
-                                text = if (submitState is UiState.Loading) "Matching…" else "Find my Pokémon",
-                                onClick = { vm.submitAnswers(list.map { AnswerInput(it.id, answers[it.id] ?: 3) }) },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = submitState !is UiState.Loading,
-                            )
-                        }
-                    }
-                }
+    val colors = LocalAppColors.current
+    Box(
+        Modifier.fillMaxSize().background(colors.background).windowInsetsPadding(WindowInsets.systemBars),
+    ) {
+        when (val q = questions) {
+            is UiState.Loading, UiState.Idle -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                IndeterminateProgressIndicator(
+                    modifier = Modifier.width(120.dp),
+                    indicatorColor = colors.primary,
+                    trackColor = colors.border,
+                )
             }
+            is UiState.Error -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) {
+                androidx.compose.material3.Text(
+                    q.message,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = colors.onBackground),
+                    textAlign = TextAlign.Center,
+                )
+            }
+            is UiState.Success -> QuestionFlow(
+                questions = q.data,
+                submitting = submitState is UiState.Loading,
+                error = (submitState as? UiState.Error)?.message,
+                onSubmit = { vm.submitAnswers(it) },
+            )
         }
     }
 }
 
 @Composable
-private fun QuestionCard(index: Int, total: Int, text: String, value: Int, onValueChange: (Int) -> Unit, category: String) {
-    PokeCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+private fun QuestionFlow(
+    questions: List<com.pokemonai.client.core.Question>,
+    submitting: Boolean,
+    error: String?,
+    onSubmit: (List<AnswerInput>) -> Unit,
+) {
+    val colors = LocalAppColors.current
+    var index by remember { mutableStateOf(0) }
+    val answers = remember { mutableStateMapOf<String, Int>() }
+    var submitted by remember { mutableStateOf(false) }
+    val total = questions.size
+    if (total == 0) return
+    val q = questions[index]
+
+    // Let the user retry if the submission failed.
+    LaunchedEffect(error) { if (error != null) submitted = false }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
+        // Top bar: back · title · theme toggle
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(colors.surface)
+                    .clickable(enabled = index > 0) { if (index > 0) index-- },
+                contentAlignment = Alignment.Center,
             ) {
-                TypeBadge(category)
-                androidx.compose.material3.Text("$index / $total", style = MonoStyle.copy(color = PokeColors.MutedLight, fontSize = 11.sp))
-            }
-            androidx.compose.material3.Text(text, style = BodyStyle.copy(color = PokeColors.Ink, fontSize = 15.sp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                androidx.compose.material3.Text("Not me", style = LabelStyle)
                 androidx.compose.material3.Text(
-                    value.toString(),
-                    style = MonoStyle.copy(color = PokeColors.PokeRed, fontSize = 16.sp)
+                    "←",
+                    style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (index > 0) colors.primary else colors.muted),
                 )
-                androidx.compose.material3.Text("Totally me", style = LabelStyle)
             }
-            Slider(
-                value = value.toFloat(),
-                onValueChange = { onValueChange(it.toInt()) },
-                valueRange = 1f..5f,
-                steps = 3,
+            androidx.compose.material3.Text(
+                "Personality",
+                style = MaterialTheme.typography.titleMedium.copy(color = colors.onBackground, fontWeight = FontWeight.Bold),
+            )
+            ThemeToggle()
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        androidx.compose.material3.Text(
+            "Question ${index + 1} of $total",
+            style = MaterialTheme.typography.labelMedium.copy(color = colors.muted, fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+        )
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(colors.border)) {
+            Box(Modifier.fillMaxWidth((index + 1f) / total).fillMaxHeight().clip(CircleShape).background(colors.primary))
+        }
+
+        Spacer(Modifier.height(36.dp))
+
+        androidx.compose.material3.Text(
+            q.text,
+            style = MaterialTheme.typography.headlineSmall.copy(color = colors.onBackground, fontWeight = FontWeight.Bold, lineHeight = 34.sp),
+        )
+
+        Spacer(Modifier.height(28.dp))
+
+        if (error != null) {
+            androidx.compose.material3.Text(
+                error,
+                style = MaterialTheme.typography.bodySmall.copy(color = colors.secondary),
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // Five-point scale — tapping records the answer and auto-advances (or submits).
+        val options = listOf(
+            5 to "Strongly agree",
+            4 to "Agree",
+            3 to "Neutral",
+            2 to "Disagree",
+            1 to "Strongly disagree",
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            options.forEach { (value, label) ->
+                val selected = answers[q.id] == value
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                        .background(if (selected) colors.primary else colors.surface)
+                        .clickable(enabled = !submitting && !submitted) {
+                            if (submitted) return@clickable
+                            answers[q.id] = value
+                            if (index < total - 1) {
+                                index++
+                            } else {
+                                submitted = true
+                                onSubmit(questions.map { AnswerInput(it.id, answers[it.id] ?: 3) })
+                            }
+                        }
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        Modifier.size(18.dp).clip(CircleShape)
+                            .background(if (selected) colors.onPrimary else colors.background)
+                            .border(2.dp, if (selected) colors.onPrimary else colors.muted, CircleShape)
+                    )
+                    androidx.compose.material3.Text(
+                        label,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = if (selected) colors.onPrimary else colors.onSurface,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        ),
+                    )
+                }
+            }
+        }
+
+        if (submitting) {
+            Spacer(Modifier.height(12.dp))
+            androidx.compose.material3.Text(
+                "Finding your match…",
+                style = MaterialTheme.typography.bodyMedium.copy(color = colors.muted),
                 modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -746,24 +841,25 @@ fun ProcessingScreen(onGenerated: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(28.dp),
                         modifier = Modifier.padding(32.dp),
                     ) {
+                        val colors = LocalAppColors.current
                         // Spinning Pokéball
                         Box(
                             Modifier.size(80.dp).clip(CircleShape)
                                 .background(
                                     Brush.radialGradient(
-                                        listOf(PokeColors.PokeRedLight, PokeColors.Cream)
+                                        listOf(colors.primary.copy(alpha = 0.18f), colors.surface)
                                     )
                                 )
-                                .border(1.5.dp, PokeColors.Border, CircleShape),
+                                .border(1.5.dp, colors.border, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 Modifier.size(40.dp).clip(CircleShape)
-                                    .background(PokeColors.PokeRed.copy(alpha = 0.15f))
-                                    .border(2.dp, PokeColors.PokeRed.copy(alpha = 0.5f), CircleShape)
+                                    .background(colors.primary.copy(alpha = 0.15f))
+                                    .border(2.dp, colors.primary.copy(alpha = 0.5f), CircleShape)
                                     .rotate(rotation)
                             )
-                            Box(Modifier.size(12.dp).clip(CircleShape).background(PokeColors.PokeRed))
+                            Box(Modifier.size(12.dp).clip(CircleShape).background(colors.primary))
                         }
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -774,8 +870,8 @@ fun ProcessingScreen(onGenerated: () -> Unit) {
                         }
                         IndeterminateProgressIndicator(
                             modifier = Modifier.width(160.dp),
-                            indicatorColor = PokeColors.PokeRed,
-                            trackColor = PokeColors.CreamDeep,
+                            indicatorColor = colors.primary,
+                            trackColor = colors.border,
                         )
                     }
                 }
@@ -791,6 +887,7 @@ fun ResultScreen(
     onSelectRecommendation: (Recommendation) -> Unit,
     onTakeQuiz: () -> Unit,
     onViewHistory: () -> Unit,
+    onSettings: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     val vm = koinInject<RecommendationViewModel>()
@@ -804,8 +901,8 @@ fun ResultScreen(
                 is UiState.Loading, UiState.Idle -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     IndeterminateProgressIndicator(
                         modifier = Modifier.width(120.dp),
-                        indicatorColor = PokeColors.PokeRed,
-                        trackColor = PokeColors.CreamDeep,
+                        indicatorColor = LocalAppColors.current.primary,
+                        trackColor = LocalAppColors.current.border,
                     )
                 }
                 is UiState.Error -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
@@ -823,7 +920,7 @@ fun ResultScreen(
                 is UiState.Success -> {
                     val recs = (state as UiState.Success).data
                     if (recs.isEmpty()) EmptyResultState(onTakeQuiz, onSignOut)
-                    else ResultList(recs, onSelectRecommendation, onTakeQuiz, onViewHistory, onSignOut)
+                    else ResultList(recs, onSelectRecommendation, onTakeQuiz, onViewHistory, onSettings)
                 }
             }
         }
@@ -858,56 +955,18 @@ private fun ResultList(
     onSelect: (Recommendation) -> Unit,
     onTakeQuiz: () -> Unit,
     onViewHistory: () -> Unit,
-    onSignOut: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val top = recs.first()
-    val others = recs.drop(1)
+    val others = recs.drop(1).take(9)
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val colors = LocalAppColors.current
 
-    Column(Modifier.fillMaxSize()) {
-        // Pinned toolbar — white background bleeds up under the status bar
-        Column(
-            Modifier.fillMaxWidth()
-                .background(PokeColors.White)
-                .statusBarsPadding()
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(PokeColors.PokeRed))
-                    androidx.compose.material3.Text(
-                        "Your Matches", style = TitleStyle,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(0.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = onViewHistory, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                        androidx.compose.material3.Text("History", style = LabelStyle)
-                    }
-                    Button(onClick = onTakeQuiz, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                        androidx.compose.material3.Text("Retake", style = LabelStyle)
-                    }
-                    Button(onClick = onSignOut, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                        androidx.compose.material3.Text("Sign out", style = LabelStyle)
-                    }
-                }
-            }
-            androidx.compose.material3.HorizontalDivider(color = PokeColors.Border, thickness = 1.dp)
-        }
-
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 40.dp + navBottom)
+            contentPadding = PaddingValues(bottom = 104.dp + navBottom)
         ) {
             // Hero card — full-bleed artwork with radial glow
             item {
@@ -948,66 +1007,89 @@ private fun ResultList(
             }
         }
     }
+        PokeNavBar(
+            selected = NavTab.MATCHES,
+            onSelect = { tab ->
+                when (tab) {
+                    NavTab.MATCHES -> {}
+                    NavTab.HISTORY -> onViewHistory()
+                    NavTab.RETAKE -> onTakeQuiz()
+                    NavTab.SETTINGS -> onSettings()
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp + navBottom),
+        )
+    }
 }
 
 @Composable
 private fun HeroCard(rec: Recommendation, onClick: () -> Unit) {
     val pct = "${(rec.matchScore * 100).toInt()}%"
-    val glowColor = PokeColors.PokeRed
+    val colors = LocalAppColors.current
+    val types = rec.pokemon.types.ifEmpty { listOf(pokemonType(rec.pokemon.name)) }
+    val accent = typeColor(types.first())
+    val artworkGradient = Brush.verticalGradient(
+        listOf(accent.lighten(0.22f), accent, accent.darken(0.12f))
+    )
 
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         PokeCard(Modifier.fillMaxWidth(), onClick = onClick) {
-            // Artwork area with radial glow
+            // Artwork area — type-coloured gradient with sparkle texture and a glow
             Box(
-                Modifier.fillMaxWidth().height(240.dp)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(glowColor.copy(alpha = 0.12f), PokeColors.Cream),
-                            radius = 400f,
-                        )
-                    )
+                Modifier.fillMaxWidth().height(260.dp).background(artworkGradient)
             ) {
-                // YOUR POKÉMON badge
+                SparklePattern(Modifier.fillMaxSize())
+                // Radial glow so the sprite reads against the colour
+                Box(
+                    Modifier.align(Alignment.Center).fillMaxWidth(0.9f).aspectRatio(1f)
+                        .background(
+                            Brush.radialGradient(listOf(Color.White.copy(alpha = 0.45f), Color.Transparent)),
+                            CircleShape,
+                        )
+                )
+                // YOUR POKÉMON badge — dark chip works on any type colour
                 Box(
                     Modifier.align(Alignment.TopStart).padding(14.dp)
-                        .clip(RoundedCornerShape(6.dp)).background(PokeColors.PokeRed)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.28f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     androidx.compose.material3.Text(
                         "YOUR POKÉMON",
                         style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 9.sp,
-                            letterSpacing = 1.2.sp, color = PokeColors.White)
+                            letterSpacing = 1.2.sp, color = Color.White)
                     )
                 }
-                // Match % top-right
+                // Match % top-right — white chip with accent text
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(14.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(PokeColors.White)
-                        .border(1.dp, PokeColors.Border, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White)
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
                 ) {
                     androidx.compose.material3.Text(
-                        pct,
-                        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 14.sp, color = PokeColors.PokeRed)
+                        "$pct MATCH",
+                        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp, color = accent.darken(0.25f))
                     )
                 }
                 // Animated sprite with type effect
                 AnimatedPokemonSprite(
                     name = rec.pokemon.name,
                     imageUrl = rec.pokemon.imageUrl,
-                    modifier = Modifier.size(200.dp).align(Alignment.Center),
+                    modifier = Modifier.size(210.dp).align(Alignment.Center),
                 )
             }
             // Info below artwork
             Column(
                 Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 androidx.compose.material3.Text(
                     rec.pokemon.name.replaceFirstChar { it.uppercase() },
                     style = HeroName
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    types.forEach { DetailTypeBadge(it) }
+                }
                 rec.explanation?.let {
                     androidx.compose.material3.Text(
                         it.replace("**", ""),
@@ -1016,10 +1098,10 @@ private fun HeroCard(rec: Recommendation, onClick: () -> Unit) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 androidx.compose.material3.Text(
                     "Tap to explore →",
-                    style = LabelStyle.copy(color = PokeColors.PokeRed, fontWeight = FontWeight.Medium)
+                    style = LabelStyle.copy(color = colors.primary, fontWeight = FontWeight.Medium)
                 )
             }
         }
@@ -1029,27 +1111,34 @@ private fun HeroCard(rec: Recommendation, onClick: () -> Unit) {
 @Composable
 private fun SecondaryCard(rec: Recommendation, onClick: () -> Unit) {
     val pct = "${(rec.matchScore * 100).toInt()}%"
+    val colors = LocalAppColors.current
+    val type = rec.pokemon.types.firstOrNull() ?: pokemonType(rec.pokemon.name)
+    val accent = typeColor(type)
     Row(
         Modifier.fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .shadow(3.dp, RoundedCornerShape(16.dp), ambientColor = PokeColors.Ink.copy(alpha = 0.04f))
+            .shadow(3.dp, RoundedCornerShape(16.dp), ambientColor = Color.Black.copy(alpha = 0.04f))
             .clip(RoundedCornerShape(16.dp))
-            .background(PokeColors.White)
+            .background(colors.surface)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(end = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Sprite thumbnail with type-glow background
+        // Type-coloured accent stripe down the left edge
+        Box(Modifier.width(5.dp).height(64.dp).background(accent))
+        // Sprite thumbnail with type-tinted background
         Box(
-            Modifier.size(60.dp).clip(RoundedCornerShape(14.dp))
-                .background(PokeColors.CreamDeep),
+            Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                .background(
+                    Brush.radialGradient(listOf(accent.copy(alpha = 0.28f), accent.copy(alpha = 0.08f)))
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (rec.pokemon.imageUrl != null)
                 AsyncImage(model = rec.pokemon.imageUrl, contentDescription = rec.pokemon.name,
-                    contentScale = ContentScale.Fit, modifier = Modifier.size(48.dp))
-            else androidx.compose.material3.Text("?", style = TextStyle(fontSize = 22.sp, color = PokeColors.Muted))
+                    contentScale = ContentScale.Fit, modifier = Modifier.size(46.dp))
+            else androidx.compose.material3.Text("?", style = TextStyle(fontSize = 22.sp, color = colors.muted))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             androidx.compose.material3.Text(rec.pokemon.name.replaceFirstChar { it.uppercase() }, style = CardName)
@@ -1063,7 +1152,7 @@ private fun SecondaryCard(rec: Recommendation, onClick: () -> Unit) {
             }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            androidx.compose.material3.Text(pct, style = MonoStyle.copy(color = PokeColors.Blue))
+            androidx.compose.material3.Text(pct, style = MonoStyle.copy(color = accent.darken(0.2f)))
             androidx.compose.material3.Text("#${rec.rank}", style = LabelStyle)
         }
     }
@@ -1125,7 +1214,7 @@ fun PokemonDetailScreen(recommendation: Recommendation, profile: PersonalityProf
                         elevation = CardDefaults.cardElevation(defaultElevation = 18.dp),
                     ) {
                         DetailScroll(
-                            recommendation, profile, types, accent, numberLabel, onBack,
+                            recommendation, profile, types, accent, numberLabel,
                             heroGradient = heroGradient, heroHeight = 300.dp,
                             modifier = Modifier.fillMaxSize(), applyInsets = false,
                         )
@@ -1134,12 +1223,32 @@ fun PokemonDetailScreen(recommendation: Recommendation, profile: PersonalityProf
             } else {
                 // Phone: full-bleed; gradient runs under the status bar, content insets.
                 DetailScroll(
-                    recommendation, profile, types, accent, numberLabel, onBack,
+                    recommendation, profile, types, accent, numberLabel,
                     heroGradient = heroGradient, heroHeight = 320.dp,
                     modifier = Modifier.fillMaxSize(), applyInsets = true,
                 )
             }
+            // Floating back button — stays put while the content scrolls.
+            FloatingBackButton(
+                accent = accent,
+                onBack = onBack,
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp),
+            )
         }
+    }
+}
+
+@Composable
+private fun FloatingBackButton(accent: Color, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier.shadow(6.dp, CircleShape).size(40.dp).clip(CircleShape)
+            .background(Color.White).clickable(onClick = onBack),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Text(
+            "←",
+            style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = accent.darken(0.2f)),
+        )
     }
 }
 
@@ -1150,7 +1259,6 @@ private fun DetailScroll(
     types: List<String>,
     accent: Color,
     numberLabel: String,
-    onBack: () -> Unit,
     heroGradient: Brush,
     heroHeight: Dp,
     modifier: Modifier,
@@ -1163,8 +1271,6 @@ private fun DetailScroll(
             PokedexHero(
                 name = pokemon.name,
                 imageUrl = pokemon.imageUrl,
-                accent = accent,
-                onBack = onBack,
                 modifier = Modifier.fillMaxWidth().height(heroHeight),
             )
             PokedexPanel(
@@ -1183,10 +1289,25 @@ private fun DetailScroll(
 private fun PokedexHero(
     name: String,
     imageUrl: String?,
-    accent: Color,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Release-from-pokeball entrance: the Pokémon erupts from the centre of the
+    // open ball — starting as a point at the opening, then scaling outward.
+    val reveal = remember(name) { Animatable(0f) }
+    LaunchedEffect(name) {
+        reveal.snapTo(0f)
+        reveal.animateTo(1f, animationSpec = tween(900, easing = FastOutSlowInEasing))
+    }
+    val p = reveal.value
+    val rise = (p / 0.85f).coerceIn(0f, 1f)        // sprite reaches its seat at 85%
+    val spriteScale = 0.12f + 0.88f * backEaseOut(rise)
+    val spriteAlpha = (p / 0.18f).coerceIn(0f, 1f)
+    val spriteLift = (1f - rise) * 24f             // starts ~24dp lower, at the opening
+    val burst = (p / 0.55f).coerceIn(0f, 1f)       // light burst from the opening
+    val burstScale = 0.2f + 1.5f * burst
+    val burstAlpha = (1f - burst) * 0.9f
+    val openingOffset = 28.dp                      // ball opening relative to hero centre
+
     Box(modifier) {
         Box(
             Modifier.fillMaxSize().background(
@@ -1195,31 +1316,220 @@ private fun PokedexHero(
         )
         SparklePattern(Modifier.fillMaxSize())
         Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.8f).aspectRatio(1f).offset(y = 22.dp)
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.68f).aspectRatio(1f).offset(y = 22.dp)
                 .background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.34f), Color.Transparent)), CircleShape)
         )
-        OpenPokeball(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.74f).aspectRatio(1f).offset(y = 16.dp),
+        // Smaller ball so the Pokémon takes center stage; white wash hides the dark interior.
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.6f).aspectRatio(1f).offset(y = 16.dp)
+        ) {
+            OpenPokeball(Modifier.fillMaxSize())
+            Box(
+                Modifier.align(Alignment.Center).offset(y = (-4).dp)
+                    .fillMaxWidth(0.58f).aspectRatio(1f)
+                    .background(
+                        Brush.radialGradient(
+                            0f to Color.White, 0.46f to Color.White, 1f to Color.White.copy(alpha = 0f)
+                        ),
+                        CircleShape,
+                    )
+            )
+        }
+        // Flash of light bursting from the ball opening
+        Box(
+            Modifier.align(Alignment.Center).offset(y = openingOffset)
+                .fillMaxWidth(0.62f).aspectRatio(1f)
+                .graphicsLayer {
+                    scaleX = burstScale; scaleY = burstScale; alpha = burstAlpha
+                }
+                .background(
+                    Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0f))),
+                    CircleShape,
+                )
+        )
+        // Radiating light rays shooting out of the opening as it releases
+        BurstRays(
+            progress = burst,
+            modifier = Modifier.align(Alignment.Center).offset(y = openingOffset)
+                .fillMaxWidth(0.95f).aspectRatio(1f),
+        )
+        // Soft glow halo that follows the Pokémon out, brightest at release
+        Box(
+            Modifier.align(Alignment.Center).offset(y = (spriteLift + 6f).dp)
+                .fillMaxWidth(0.72f).aspectRatio(1f)
+                .graphicsLayer {
+                    val s = 0.55f + 0.45f * rise
+                    scaleX = s; scaleY = s
+                    alpha = 0.2f + 0.45f * (1f - rise)
+                }
+                .background(
+                    Brush.radialGradient(listOf(Color.White.copy(alpha = 0.7f), Color.Transparent)),
+                    CircleShape,
+                )
         )
         if (imageUrl != null) {
             AsyncImage(
                 model = imageUrl,
                 contentDescription = name,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.align(Alignment.Center).fillMaxWidth(0.66f).aspectRatio(1f).offset(y = (-4).dp),
+                modifier = Modifier.align(Alignment.Center)
+                    .fillMaxWidth(0.8f).aspectRatio(1f)
+                    .offset(y = (spriteLift + 6f).dp)
+                    .graphicsLayer {
+                        scaleX = spriteScale
+                        scaleY = spriteScale
+                        alpha = spriteAlpha
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    },
             )
         }
-        Box(
-            Modifier.padding(16.dp).align(Alignment.TopStart)
-                .size(40.dp).clip(CircleShape)
-                .background(Color.White)
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) {
+    }
+}
+
+// Back-ease-out: overshoots slightly past 1.0 then settles, for a lively "pop".
+private fun backEaseOut(t: Float): Float {
+    val c1 = 1.70158f
+    val c3 = c1 + 1f
+    val x = t - 1f
+    return 1f + c3 * x * x * x + c1 * x * x
+}
+
+// Light rays bursting out of the pokéball opening during the release animation.
+@Composable
+private fun BurstRays(progress: Float, modifier: Modifier) {
+    if (progress <= 0f || progress >= 1f) return
+    Canvas(modifier) {
+        val n = 12
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val inner = size.minDimension * 0.12f
+        val outer = size.minDimension * (0.22f + 0.30f * progress)
+        val alpha = (1f - progress).coerceIn(0f, 1f)
+        val ray = Color(0xFFFFF4C2) // warm gold so it pops on the ball and the page
+        rotate(progress * 22f, pivot = Offset(cx, cy)) {
+            for (i in 0 until n) {
+                val a = (i * (360f / n)) * (PI.toFloat() / 180f)
+                val longer = if (i % 2 == 0) 1f else 0.7f
+                drawLine(
+                    ray.copy(alpha = alpha * 0.85f),
+                    Offset(cx + cos(a) * inner, cy + sin(a) * inner),
+                    Offset(cx + cos(a) * outer * longer, cy + sin(a) * outer * longer),
+                    strokeWidth = size.minDimension * 0.013f,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                )
+            }
+        }
+    }
+}
+
+// ── Bottom navigation bar ───────────────────────────────────────────────────
+// Custom themed bar (pure Compose Multiplatform — identical on Android, desktop, iOS).
+// Selected tab expands into a filled pill with a label, like the reference design.
+
+enum class NavTab { MATCHES, HISTORY, RETAKE, SETTINGS }
+
+@Composable
+fun PokeNavBar(selected: NavTab, onSelect: (NavTab) -> Unit, modifier: Modifier = Modifier) {
+    val colors = LocalAppColors.current
+    Row(
+        modifier
+            .shadow(8.dp, RoundedCornerShape(50), ambientColor = Color.Black.copy(alpha = 0.08f))
+            .clip(RoundedCornerShape(50))
+            .background(colors.surface)
+            .border(1.dp, colors.border, RoundedCornerShape(50))
+            .padding(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        NavBarItem(NavTab.MATCHES, "Matches", selected, onSelect)
+        NavBarItem(NavTab.HISTORY, "History", selected, onSelect)
+        NavBarItem(NavTab.RETAKE, "Retake", selected, onSelect)
+        NavBarItem(NavTab.SETTINGS, "Settings", selected, onSelect)
+    }
+}
+
+@Composable
+private fun NavBarItem(tab: NavTab, label: String, selected: NavTab, onSelect: (NavTab) -> Unit) {
+    val colors = LocalAppColors.current
+    val isSelected = tab == selected
+    val bg by animateColorAsState(if (isSelected) colors.primary else Color.Transparent)
+    val fg = if (isSelected) colors.onPrimary else colors.muted
+    Row(
+        Modifier.clip(RoundedCornerShape(50))
+            .background(bg)
+            .clickable { onSelect(tab) }
+            .padding(horizontal = 13.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        NavTabIcon(tab, fg, Modifier.size(20.dp))
+        AnimatedVisibility(isSelected) {
             androidx.compose.material3.Text(
-                "←",
-                style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = accent.darken(0.2f)),
+                label,
+                style = LabelStyle.copy(color = fg, fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
             )
+        }
+    }
+}
+
+@Composable
+private fun NavTabIcon(tab: NavTab, color: Color, modifier: Modifier) {
+    Canvas(modifier) {
+        val s = size.minDimension
+        val stroke = Stroke(width = s * 0.09f, cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        when (tab) {
+            NavTab.MATCHES -> {
+                // House: roof + body
+                drawPath(Path().apply {
+                    moveTo(0.12f * s, 0.52f * s); lineTo(0.5f * s, 0.16f * s); lineTo(0.88f * s, 0.52f * s)
+                }, color, style = stroke)
+                drawPath(Path().apply {
+                    moveTo(0.24f * s, 0.46f * s); lineTo(0.24f * s, 0.86f * s)
+                    lineTo(0.76f * s, 0.86f * s); lineTo(0.76f * s, 0.46f * s)
+                }, color, style = stroke)
+            }
+            NavTab.HISTORY -> {
+                // Clock face + hands
+                val r = s * 0.38f
+                drawCircle(color, radius = r, center = center, style = stroke)
+                drawLine(color, center, Offset(center.x, center.y - r * 0.62f), stroke.width)
+                drawLine(color, center, Offset(center.x + r * 0.5f, center.y), stroke.width)
+            }
+            NavTab.RETAKE -> {
+                // Circular refresh arrow
+                val r = s * 0.34f
+                drawArc(
+                    color, startAngle = 300f, sweepAngle = 250f, useCenter = false,
+                    topLeft = Offset(center.x - r, center.y - r),
+                    size = Size(r * 2f, r * 2f), style = stroke,
+                )
+                val end = (300f + 250f) * (PI.toFloat() / 180f)
+                val tip = Offset(center.x + r * cos(end), center.y + r * sin(end))
+                val fwd = Offset(-sin(end), cos(end)) // tangent in direction of sweep
+                val ang = atan2(fwd.y, fwd.x)
+                val len = s * 0.2f
+                drawLine(color, tip, Offset(tip.x + len * cos(ang + 2.6f), tip.y + len * sin(ang + 2.6f)), stroke.width)
+                drawLine(color, tip, Offset(tip.x + len * cos(ang - 2.6f), tip.y + len * sin(ang - 2.6f)), stroke.width)
+            }
+            NavTab.SETTINGS -> {
+                // Gear: a ring with radial teeth
+                val teeth = 8
+                val toothInner = s * 0.30f
+                val toothOuter = s * 0.44f
+                for (i in 0 until teeth) {
+                    val a = (i * (360f / teeth)) * (PI.toFloat() / 180f)
+                    drawLine(
+                        color,
+                        Offset(center.x + cos(a) * toothInner, center.y + sin(a) * toothInner),
+                        Offset(center.x + cos(a) * toothOuter, center.y + sin(a) * toothOuter),
+                        strokeWidth = s * 0.11f,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                }
+                drawCircle(color, radius = s * 0.24f, center = center, style = stroke)
+            }
         }
     }
 }
@@ -1261,7 +1571,10 @@ private fun PokedexPanel(
             )
             androidx.compose.material3.Text(
                 numberLabel,
-                style = MaterialTheme.typography.titleMedium.copy(color = Color.White.copy(alpha = 0.9f), fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = Color.White, fontWeight = FontWeight.Bold,
+                    shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 1f), 6f),
+                ),
                 modifier = Modifier.padding(bottom = 4.dp),
             )
         }
@@ -1276,7 +1589,10 @@ private fun PokedexPanel(
                 CardSectionLabel("Why you matched")
                 androidx.compose.material3.Text(
                     why.replace("**", ""),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.92f), lineHeight = 21.sp),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color.White, lineHeight = 21.sp,
+                        shadow = Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 1f), 5f),
+                    ),
                 )
             }
         }
@@ -1284,7 +1600,10 @@ private fun PokedexPanel(
         pokemon.description?.let { desc ->
             androidx.compose.material3.Text(
                 desc,
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.82f), lineHeight = 20.sp),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.White.copy(alpha = 0.95f), lineHeight = 20.sp,
+                    shadow = Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 1f), 5f),
+                ),
             )
         }
 
@@ -1296,10 +1615,9 @@ private fun PokedexPanel(
         }
 
         if (profile != null) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                CardSectionLabel("Personality")
+            StatAccordion("Personality") {
                 listOf(
-                    Triple("Energy", profile.energy, Color(0xFFFFA726)),
+                    Triple("Energy", profile.energy, Color(0xFFFF6D00)),
                     Triple("Curiosity", profile.curiosity, Color(0xFF29B6F6)),
                     Triple("Leadership", profile.leadership, Color(0xFFAB47BC)),
                     Triple("Loyalty", profile.loyalty, Color(0xFF66BB6A)),
@@ -1310,6 +1628,8 @@ private fun PokedexPanel(
                 }
             }
         }
+
+        StatsAccordion(baseStats)
 
         if (pokemon.category != null || pokemon.weight != null || pokemon.height != null) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1325,43 +1645,60 @@ private fun PokedexPanel(
                 weaknesses.forEach { DetailTypeBadge(it) }
             }
         }
-
-        StatsAccordion(baseStats)
     }
 }
 
+// MMO/ARPG-flavoured stat colours: vitality red, physical orange, armour blue,
+// arcane purple, resist teal, agility lime.
+private fun statColor(label: String): Color = when (label) {
+    "HP" -> Color(0xFFFF5350)
+    "Attack" -> Color(0xFFFF8A3D)
+    "Defense" -> Color(0xFF4FA3F0)
+    "Sp. Atk" -> Color(0xFFC264E0)
+    "Sp. Def" -> Color(0xFF2BD4C0)
+    "Speed" -> Color(0xFFAEE83A)
+    else -> Color.White
+}
+
+// Reusable collapsible section (default closed) used for Personality and Base Stats.
 @Composable
-private fun StatsAccordion(stats: List<Pair<String, Int>>) {
+private fun StatAccordion(title: String, content: @Composable ColumnScope.() -> Unit) {
     var open by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f)),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.22f)),
     ) {
         Row(
             Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CardSectionLabel("Base Stats")
+            CardSectionLabel(title)
             androidx.compose.material3.Text(
                 if (open) "▲" else "▼",
-                style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.7f)),
+                style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.9f)),
             )
         }
         AnimatedVisibility(open) {
             Column(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (stats.isEmpty()) {
-                    androidx.compose.material3.Text(
-                        "Base stats aren't available yet — sync the Pokédex to populate them.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.7f)),
-                    )
-                } else {
-                    stats.forEach { (label, value) ->
-                        CardStatRow(label, (value / 200f).coerceIn(0f, 1f), value.toString())
-                    }
-                }
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatsAccordion(stats: List<Pair<String, Int>>) {
+    StatAccordion("Base Stats") {
+        if (stats.isEmpty()) {
+            androidx.compose.material3.Text(
+                "Base stats aren't available yet — sync the Pokédex to populate them.",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.7f)),
+            )
+        } else {
+            stats.forEach { (label, value) ->
+                CardStatRow(label, (value / 200f).coerceIn(0f, 1f), value.toString(), statColor(label))
             }
         }
     }
@@ -1414,7 +1751,8 @@ private fun CardSectionLabel(text: String) {
     androidx.compose.material3.Text(
         text.uppercase(),
         style = MaterialTheme.typography.labelMedium.copy(
-            color = Color.White.copy(alpha = 0.65f), fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp
+            color = Color.White.copy(alpha = 0.92f), fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+            shadow = Shadow(Color.Black.copy(alpha = 0.3f), Offset(0f, 1f), 4f),
         ),
     )
 }
@@ -1451,7 +1789,7 @@ private fun CardStatRow(label: String, fraction: Float, valueLabel: String?, col
 @Composable
 private fun Pill(text: String) {
     Box(
-        Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f))
+        Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.22f))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         androidx.compose.material3.Text(
@@ -1607,51 +1945,38 @@ private fun DrawScope.drawTypeGlyph(type: String, c: Offset, r: Float, fg: Color
 // ── History ───────────────────────────────────────────────────────────────────
 
 @Composable
-fun HistoryScreen(onBack: () -> Unit, onSignOut: () -> Unit) {
+fun HistoryScreen(onMatches: () -> Unit, onRetake: () -> Unit, onSettings: () -> Unit) {
     val vm = koinInject<RecommendationViewModel>()
     val state by vm.state.collectAsState()
+    val colors = LocalAppColors.current
 
-    LaunchedEffect(Unit) { vm.load() }
+    LaunchedEffect(Unit) { vm.loadHistory() }
 
     PokemonTheme {
         PokeScreen {
+            Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
                 Row(
                     Modifier.fillMaxWidth()
-                        .background(PokeColors.White)
+                        .background(colors.surface)
                         .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(onClick = onBack, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                        androidx.compose.material3.Text("← Back", style = LabelStyle.copy(color = PokeColors.Blue))
-                    }
-                    androidx.compose.material3.Text("Match history", style = TitleStyle)
-                    Button(onClick = onSignOut, style = ButtonStyle.Ghost, buttonSize = ButtonSize.Small) {
-                        androidx.compose.material3.Text("Sign out", style = LabelStyle)
-                    }
+                    androidx.compose.material3.Text("Your past tests", style = TitleStyle)
                 }
-                androidx.compose.material3.HorizontalDivider(color = PokeColors.Border, thickness = 1.dp)
+                androidx.compose.material3.HorizontalDivider(color = colors.border, thickness = 1.dp)
 
+                Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (state) {
                     is UiState.Loading, UiState.Idle -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                         IndeterminateProgressIndicator(
                             modifier = Modifier.width(120.dp),
-                            indicatorColor = PokeColors.PokeRed,
-                            trackColor = PokeColors.CreamDeep,
+                            indicatorColor = colors.primary,
+                            trackColor = colors.border,
                         )
                     }
                     is UiState.Error -> Box(Modifier.fillMaxSize().padding(24.dp), Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.widthIn(max = 320.dp)
-                        ) {
-                            InlineError((state as UiState.Error).message)
-                            Button(onClick = onSignOut, modifier = Modifier.fillMaxWidth(), style = ButtonStyle.Outlined) {
-                                androidx.compose.material3.Text("Sign out")
-                            }
-                        }
+                        InlineError((state as UiState.Error).message)
                     }
                     is UiState.Success -> {
                         val recs = (state as UiState.Success).data
@@ -1669,55 +1994,198 @@ fun HistoryScreen(onBack: () -> Unit, onSignOut: () -> Unit) {
                                 }
                             }
                         } else {
+                            val tests = recs.groupBy { it.generatedAt }.values.toList()
                             LazyColumn(
                                 Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                contentPadding = PaddingValues(vertical = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                contentPadding = PaddingValues(top = 16.dp, bottom = 92.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                itemsIndexed(recs) { _, rec -> HistoryRow(rec) }
+                                itemsIndexed(tests) { _, testRecs -> TestHistoryCard(testRecs) }
                             }
                         }
                     }
                 }
+                }
+            }
+            PokeNavBar(
+                selected = NavTab.HISTORY,
+                onSelect = { tab ->
+                    when (tab) {
+                        NavTab.MATCHES -> onMatches()
+                        NavTab.HISTORY -> {}
+                        NavTab.RETAKE -> onRetake()
+                        NavTab.SETTINGS -> onSettings()
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+            )
             }
         }
     }
 }
 
 @Composable
-private fun HistoryRow(rec: Recommendation) {
-    Row(
+fun SettingsScreen(
+    onMatches: () -> Unit,
+    onHistory: () -> Unit,
+    onRetake: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val dark = LocalDarkTheme.current
+
+    PokemonTheme {
+        PokeScreen {
+            Box(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier.fillMaxWidth().background(colors.surface)
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.Text("Settings", style = TitleStyle)
+                    }
+                    androidx.compose.material3.HorizontalDivider(color = colors.border, thickness = 1.dp)
+
+                    Column(
+                        Modifier.weight(1f).fillMaxWidth().padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        SectionLabel("Appearance")
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .shadow(2.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = 0.04f))
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(colors.surface)
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                androidx.compose.material3.Text("Theme", style = CardName.copy(fontSize = 15.sp))
+                                androidx.compose.material3.Text(
+                                    if (dark) "Dark mode" else "Light mode",
+                                    style = LabelStyle,
+                                )
+                            }
+                            ThemeToggle()
+                        }
+
+                        SectionLabel("Account")
+                        Button(
+                            onClick = onSignOut,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = ButtonStyle.Outlined,
+                        ) {
+                            androidx.compose.material3.Text("Sign out")
+                        }
+                    }
+                }
+                PokeNavBar(
+                    selected = NavTab.SETTINGS,
+                    onSelect = { tab ->
+                        when (tab) {
+                            NavTab.MATCHES -> onMatches()
+                            NavTab.HISTORY -> onHistory()
+                            NavTab.RETAKE -> onRetake()
+                            NavTab.SETTINGS -> {}
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TestHistoryCard(recs: List<Recommendation>) {
+    val colors = LocalAppColors.current
+    val winner = recs.first()
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
         Modifier.fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(14.dp), ambientColor = PokeColors.Ink.copy(alpha = 0.04f))
+            .shadow(2.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = 0.04f))
             .clip(RoundedCornerShape(14.dp))
-            .background(PokeColors.White)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .background(colors.surface)
+            .clickable { expanded = !expanded }
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(colors.background),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (winner.pokemon.imageUrl != null)
+                        AsyncImage(model = winner.pokemon.imageUrl, contentDescription = winner.pokemon.name,
+                            contentScale = ContentScale.Fit, modifier = Modifier.size(40.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    androidx.compose.material3.Text(
+                        winner.pokemon.name.replaceFirstChar { it.uppercase() },
+                        style = CardName.copy(fontSize = 14.sp)
+                    )
+                    androidx.compose.material3.Text(winner.generatedAt.take(10), style = LabelStyle)
+                }
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                androidx.compose.material3.Text(
+                    "${(winner.matchScore * 100).toInt()}%",
+                    style = MonoStyle.copy(color = colors.secondary)
+                )
+                androidx.compose.material3.Text(
+                    if (recs.size > 1) "${recs.size} matches ${if (expanded) "▲" else "▼"}" else "Top match",
+                    style = LabelStyle
+                )
+            }
+        }
+        AnimatedVisibility(expanded && recs.size > 1) {
+            Column(
+                Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                androidx.compose.material3.HorizontalDivider(color = colors.border, thickness = 1.dp)
+                recs.forEach { TestMatchRow(it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TestMatchRow(rec: Recommendation) {
+    val colors = LocalAppColors.current
+    Row(
+        Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            androidx.compose.material3.Text(
+                "#${rec.rank}",
+                style = LabelStyle.copy(color = colors.muted),
+                modifier = Modifier.width(26.dp)
+            )
             Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(PokeColors.CreamDeep),
+                Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(colors.background),
                 contentAlignment = Alignment.Center
             ) {
                 if (rec.pokemon.imageUrl != null)
                     AsyncImage(model = rec.pokemon.imageUrl, contentDescription = rec.pokemon.name,
-                        contentScale = ContentScale.Fit, modifier = Modifier.size(40.dp))
+                        contentScale = ContentScale.Fit, modifier = Modifier.size(26.dp))
             }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                androidx.compose.material3.Text(
-                    rec.pokemon.name.replaceFirstChar { it.uppercase() },
-                    style = CardName.copy(fontSize = 14.sp)
-                )
-                androidx.compose.material3.Text(rec.generatedAt.take(10), style = LabelStyle)
-            }
-        }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             androidx.compose.material3.Text(
-                "${(rec.matchScore * 100).toInt()}%",
-                style = MonoStyle.copy(color = PokeColors.Blue)
+                rec.pokemon.name.replaceFirstChar { it.uppercase() },
+                style = BodyStyle.copy(fontSize = 14.sp, color = colors.onSurface)
             )
-            androidx.compose.material3.Text("#${rec.rank}", style = LabelStyle)
         }
+        androidx.compose.material3.Text(
+            "${(rec.matchScore * 100).toInt()}%",
+            style = MonoStyle.copy(color = colors.secondary)
+        )
     }
 }

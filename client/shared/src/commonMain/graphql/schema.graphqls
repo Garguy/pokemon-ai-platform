@@ -6,6 +6,7 @@ type Query {
     questions: [Question!]!
     myProfile: PersonalityProfile
     myRecommendations: [Recommendation!]!
+    myHistory: [Recommendation!]!
 }
 
 type Mutation {

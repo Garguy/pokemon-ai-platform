@@ -20,7 +20,6 @@ class ApolloAuthRepository(
         } catch (e: Exception) {
             throw Exception("Network error: ${e::class.simpleName}: ${e.message}", e)
         }
-        println("LOGIN_DEBUG: data=${response.data}, errors=${response.errors}, exception=${response.exception}, cause=${response.exception?.cause}")
         response.exception?.let {
             val msg = if (it is ApolloHttpException) "HTTP ${it.statusCode}" else (it.message ?: it::class.simpleName ?: "Network error")
             throw Exception(msg, it)
