@@ -107,14 +107,11 @@ fun PokemonAiNavHost() {
             )
         }
         composable(Route.DETAIL) {
-            // Load profile into observable state so the screen recomposes once it arrives.
             var profile by remember { mutableStateOf(selectionHolder.profile) }
             LaunchedEffect(Unit) {
-                if (profile == null) {
-                    val loaded = try { questionnaireRepo.getProfile() } catch (_: Exception) { null }
-                    selectionHolder.profile = loaded
-                    profile = loaded
-                }
+                val loaded = try { questionnaireRepo.getProfile() } catch (_: Exception) { null }
+                selectionHolder.profile = loaded
+                profile = loaded
             }
             val rec = selectionHolder.selected
             if (rec != null) {
