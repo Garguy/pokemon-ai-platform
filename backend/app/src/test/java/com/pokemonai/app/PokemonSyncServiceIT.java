@@ -37,18 +37,8 @@ class PokemonSyncServiceIT extends PostgresContainerBase {
 
     @Test
     void syncOnePersistsPokemonRow() {
-        when(pokeApiClient.fetchDetail(1)).thenReturn(new PokemonDetailResponse(
-                1, "bulbasaur",
-                new PokemonDetailResponse.Sprites(
-                        "https://sprites/1.png",
-                        new PokemonDetailResponse.Other(
-                                new PokemonDetailResponse.OfficialArtwork("https://artwork/1.png")))));
-
-        when(pokeApiClient.fetchSpecies(1)).thenReturn(new PokemonSpeciesResponse(
-                1, "bulbasaur",
-                List.of(new PokemonSpeciesResponse.FlavorTextEntry(
-                        "A strange seed.",
-                        new PokemonSpeciesResponse.Language("en")))));
+        when(pokeApiClient.fetchDetail(1)).thenReturn(bulbasaurDetail("https://artwork/1.png"));
+        when(pokeApiClient.fetchSpecies(1)).thenReturn(bulbasaurSpecies("A strange seed."));
 
         pokemonSyncService.syncOne(1);
 
@@ -63,16 +53,8 @@ class PokemonSyncServiceIT extends PostgresContainerBase {
     void syncOneUpdatesExistingRow() {
         pokemonRepository.save(new Pokemon(1, "bulbasaur", "Old desc", "old-url"));
 
-        when(pokeApiClient.fetchDetail(1)).thenReturn(new PokemonDetailResponse(
-                1, "bulbasaur",
-                new PokemonDetailResponse.Sprites("https://sprites/1.png",
-                        new PokemonDetailResponse.Other(
-                                new PokemonDetailResponse.OfficialArtwork("https://new-artwork/1.png")))));
-
-        when(pokeApiClient.fetchSpecies(1)).thenReturn(new PokemonSpeciesResponse(
-                1, "bulbasaur",
-                List.of(new PokemonSpeciesResponse.FlavorTextEntry(
-                        "New desc.", new PokemonSpeciesResponse.Language("en")))));
+        when(pokeApiClient.fetchDetail(1)).thenReturn(bulbasaurDetail("https://new-artwork/1.png"));
+        when(pokeApiClient.fetchSpecies(1)).thenReturn(bulbasaurSpecies("New desc."));
 
         pokemonSyncService.syncOne(1);
 
@@ -80,5 +62,36 @@ class PokemonSyncServiceIT extends PostgresContainerBase {
         Optional<Pokemon> updated = pokemonRepository.findByExternalId(1);
         assertThat(updated.get().getDescription()).isEqualTo("New desc.");
         assertThat(updated.get().getImageUrl()).isEqualTo("https://new-artwork/1.png");
+    }
+
+    // --- helpers ---
+
+    private PokemonDetailResponse bulbasaurDetail(String artworkUrl) {
+        return new PokemonDetailResponse(
+                1, "bulbasaur",
+                7, 69,
+                List.of(
+                        new PokemonDetailResponse.TypeSlot(1, new PokemonDetailResponse.Type("grass")),
+                        new PokemonDetailResponse.TypeSlot(2, new PokemonDetailResponse.Type("poison"))
+                ),
+                List.of(
+                        new PokemonDetailResponse.StatSlot(45, new PokemonDetailResponse.Stat("hp")),
+                        new PokemonDetailResponse.StatSlot(49, new PokemonDetailResponse.Stat("attack"))
+                ),
+                new PokemonDetailResponse.Sprites(
+                        "https://sprites/1.png",
+                        new PokemonDetailResponse.Other(
+                                new PokemonDetailResponse.OfficialArtwork(artworkUrl))));
+    }
+
+    private PokemonSpeciesResponse bulbasaurSpecies(String flavorText) {
+        return new PokemonSpeciesResponse(
+                1, "bulbasaur",
+                List.of(new PokemonSpeciesResponse.FlavorTextEntry(
+                        flavorText,
+                        new PokemonSpeciesResponse.Language("en"))),
+                List.of(new PokemonSpeciesResponse.Genus(
+                        "Seed Pokémon",
+                        new PokemonSpeciesResponse.Language("en"))));
     }
 }

@@ -79,4 +79,87 @@ class SubmitAnswersMutationIT extends PostgresContainerBase {
                     }
                 });
     }
+
+    @Test
+    void answerValueBelowRangeReturnsError() {
+        var question = questionRepository.findAllByOrderByDisplayOrderAsc().get(0);
+
+        tester.document("""
+                mutation {
+                    submitAnswers(answers: [{ questionId: "%s", answerValue: 0 }]) {
+                        energy
+                    }
+                }
+                """.formatted(question.getId()))
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
+    }
+
+    @Test
+    void answerValueAboveRangeReturnsError() {
+        var question = questionRepository.findAllByOrderByDisplayOrderAsc().get(0);
+
+        tester.document("""
+                mutation {
+                    submitAnswers(answers: [{ questionId: "%s", answerValue: 6 }]) {
+                        energy
+                    }
+                }
+                """.formatted(question.getId()))
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
+    }
+
+    @Test
+    void duplicateQuestionIdInSameSubmissionReturnsError() {
+        var question = questionRepository.findAllByOrderByDisplayOrderAsc().get(0);
+        String qid = question.getId().toString();
+
+        tester.document("""
+                mutation {
+                    submitAnswers(answers: [
+                        { questionId: "%s", answerValue: 3 },
+                        { questionId: "%s", answerValue: 4 }
+                    ]) {
+                        energy
+                    }
+                }
+                """.formatted(qid, qid))
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
+    }
+
+    @Test
+    void malformedQuestionIdFormatReturnsError() {
+        tester.document("""
+                mutation {
+                    submitAnswers(answers: [{ questionId: "not-a-uuid", answerValue: 3 }]) {
+                        energy
+                    }
+                }
+                """)
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
+    }
+
+    @Test
+    void unknownQuestionIdReturnsError() {
+        tester.document("""
+                mutation {
+                    submitAnswers(answers: [{
+                        questionId: "00000000-0000-0000-0000-000000000000",
+                        answerValue: 3
+                    }]) {
+                        energy
+                    }
+                }
+                """)
+                .execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
+    }
 }

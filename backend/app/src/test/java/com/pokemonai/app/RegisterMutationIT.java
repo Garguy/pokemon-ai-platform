@@ -28,7 +28,7 @@ class RegisterMutationIT extends PostgresContainerBase {
 
         tester.document("""
                 mutation {
-                    register(input: { email: "misty@pokemon.com", password: "securepass" }) {
+                    register(input: { email: "misty@cerulean.com", password: "securepass" }) {
                         token
                         user { id email }
                     }
@@ -37,8 +37,33 @@ class RegisterMutationIT extends PostgresContainerBase {
                 .execute()
                 .path("register.token").entity(String.class).satisfies(token ->
                         assertThat(token).isNotBlank())
-                .path("register.user.email").entity(String.class).isEqualTo("misty@pokemon.com");
+                .path("register.user.email").entity(String.class).isEqualTo("misty@cerulean.com");
 
-        assertThat(userRepository.existsByEmail("misty@pokemon.com")).isTrue();
+        assertThat(userRepository.existsByEmail("misty@cerulean.com")).isTrue();
+    }
+
+    @Test
+    void registerWithDuplicateEmailReturnsError() {
+        HttpGraphQlTester tester = HttpGraphQlTester.create(
+                WebTestClient.bindToServer()
+                        .baseUrl("http://localhost:" + port + "/graphql")
+                        .build());
+
+        String mutation = """
+                mutation {
+                    register(input: { email: "duplicate@cerulean.com", password: "securepass" }) {
+                        token
+                    }
+                }
+                """;
+
+        // First registration succeeds
+        tester.document(mutation).execute().path("register.token")
+                .entity(String.class).satisfies(t -> assertThat(t).isNotBlank());
+
+        // Second registration with same email returns an error
+        tester.document(mutation).execute()
+                .errors()
+                .satisfy(errors -> assertThat(errors).isNotEmpty());
     }
 }
