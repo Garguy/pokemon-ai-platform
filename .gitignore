@@ -31,7 +31,5 @@ logs/
 .claude-plugin/
 client/.claude/
 harness.toml
-com/
-
 # Compiled class files outside build dirs
 **/*.class
