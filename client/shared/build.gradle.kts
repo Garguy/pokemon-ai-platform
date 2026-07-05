@@ -61,7 +61,8 @@ kotlin {
         val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
         val desktopMain by getting {
             dependencies {
-                // java.util.prefs available on JVM — no extra dep needed
+                // OkHttp engine for Ktor so Coil can load remote images on desktop JVM
+                implementation(libs.ktor.client.okhttp)
             }
         }
     }
