@@ -59,6 +59,10 @@ class PokeApiClientTest {
                         {
                           "id": 1,
                           "name": "bulbasaur",
+                          "height": 7,
+                          "weight": 69,
+                          "types": [],
+                          "stats": [],
                           "sprites": {
                             "front_default": "https://raw.githubusercontent.com/sprites/1.png",
                             "other": {
@@ -94,5 +98,38 @@ class PokeApiClientTest {
         assertThat(response.count()).isEqualTo(151);
         assertThat(response.results()).hasSize(2);
         assertThat(response.results().get(0).name()).isEqualTo("bulbasaur");
+    }
+
+    @Test
+    void fetchDetailWith404WrapsExceptionAsPokemonAiException() {
+        server.expect(requestTo("https://pokeapi.co/api/v2/pokemon/999"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
+                        .withResourceNotFound());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.fetchDetail(999))
+                .isInstanceOf(com.pokemonai.shared.exception.PokemonAiException.class)
+                .hasMessageContaining("999");
+    }
+
+    @Test
+    void fetchSpeciesWith404WrapsExceptionAsPokemonAiException() {
+        server.expect(requestTo("https://pokeapi.co/api/v2/pokemon-species/999"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
+                        .withResourceNotFound());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.fetchSpecies(999))
+                .isInstanceOf(com.pokemonai.shared.exception.PokemonAiException.class)
+                .hasMessageContaining("999");
+    }
+
+    @Test
+    void fetchDetailWith500WrapsExceptionAsPokemonAiException() {
+        server.expect(requestTo("https://pokeapi.co/api/v2/pokemon/2"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
+                        .withServerError());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.fetchDetail(2))
+                .isInstanceOf(com.pokemonai.shared.exception.PokemonAiException.class)
+                .hasMessageContaining("2");
     }
 }

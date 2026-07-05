@@ -47,10 +47,10 @@ class QuestionnaireServiceIT extends PostgresContainerBase {
 
         PersonalityProfile profile = questionnaireService.submitAnswers(userId, inputs);
 
-        assertThat(userAnswerRepository.findByUserId(userId)).hasSize(18);
+        assertThat(userAnswerRepository.findByUserId(userId)).hasSize(questions.size());
         assertThat(profile.getId()).isNotNull();
         assertThat(profile.getUserId()).isEqualTo(userId);
-        // weights per trait: 1.0+1.2+0.8=3.0; score = (3*3.0)/(5*3.0) = 0.6
+        // all weights=1.0, value=3: score = 3/(5) = 0.6 for every trait
         assertThat(profile.getEnergy()).isEqualByComparingTo("0.6000");
         assertThat(profile.getCuriosity()).isEqualByComparingTo("0.6000");
     }
@@ -72,7 +72,7 @@ class QuestionnaireServiceIT extends PostgresContainerBase {
         assertThat(profileRepository.count()).isEqualTo(1);
         // Scores should now reflect value=5
         assertThat(updated.getEnergy()).isEqualByComparingTo("1.0000");
-        // Only 18 answer rows — not 36
-        assertThat(userAnswerRepository.findByUserId(userId)).hasSize(18);
+        // Only 20 answer rows — not 40 (upsert, not append)
+        assertThat(userAnswerRepository.findByUserId(userId)).hasSize(questions.size());
     }
 }
