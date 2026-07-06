@@ -1,4 +1,4 @@
-# Pokémon AI Platform
+# PokéSoul
 
 A personality quiz that uses a Jungian-style questionnaire and an LLM to recommend your Pokémon match.
 
