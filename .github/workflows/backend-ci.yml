@@ -32,3 +32,4 @@ jobs:
           JWT_SECRET: ci-test-secret-not-used-in-production
           GROQ_API_KEY: ""
         run: ./gradlew test
+# end
